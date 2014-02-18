@@ -1,0 +1,10 @@
+header
+test.conf
+build/
+dist/
+trash/
+docs/_build
+*.pyc
+*.egg-info
+.*.swp
+.*.swo
