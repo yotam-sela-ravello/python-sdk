@@ -382,7 +382,7 @@ class RavelloClient(object):
                 else:
                     code = response.getheader('ERROR-CODE', 'unknown')
                     msg = response.getheader('ERROR-MESSAGE', 'unknown')
-                    raise RavelloError('got status {0} ({1}/{2}' .format(status, code, msg))
+                    raise RavelloError('got status {0} ({1}/{2})' .format(status, code, msg))
                 response.entity = entity
             except socket.timeout as e:
                 self._logger.debug('timeout: {0!s}'.format(e))
