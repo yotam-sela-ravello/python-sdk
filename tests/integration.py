@@ -16,14 +16,17 @@ import os
 import sys
 
 if sys.version_info[:2] < (3,3):
-    sys.stderr.write('This driver requires Python >= 3.3\n')
-    sys.stderr.write('Please use "nosetests" instead.\n')
-    sys.exit(1)
+    from unittest2 import TestLoader, TextTestRunner
+else:
+    from unittest import TestLoader, TextTestRunner
 
-from unittest import TestLoader, TextTestRunner
 
 testdir = os.path.split(os.path.abspath(__file__))[0]
+topdir = os.path.split(testdir)[0]
+libdir = os.path.join(topdir, 'lib')
+
 os.chdir(testdir)
+sys.path.insert(0, libdir)
 
 loader = TestLoader()
 tests = loader.discover('.', 'flow_*.py')

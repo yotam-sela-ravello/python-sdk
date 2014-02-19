@@ -58,8 +58,7 @@ class UnitTest(unittest.TestCase):
         topdir = os.path.split(os.path.split(fname)[0])[0]
         cfgname = os.path.join(topdir, 'test.conf')
         cls.config = ConfigParser()
-        with open(cfgname) as fin:
-            cls.config.read_file(fin)
+        cls.config.read(cfgname)
 
     def random_name(self):
         return base64.b64encode(os.urandom(6)).decode('ascii').rstrip()
