@@ -55,8 +55,10 @@ class UnitTest(unittest.TestCase):
     def setUpClass(cls):
         setup_logging()
         fname = os.path.abspath(__file__)
-        topdir = os.path.split(os.path.split(fname)[0])[0]
-        cfgname = os.path.join(topdir, 'test.conf')
+        cfgname = os.environ.get('TEST_CONFIG')
+        if cfgname is None:
+            topdir = os.path.split(os.path.split(fname)[0])[0]
+            cfgname = os.path.join(topdir, 'test.conf')
         cls.config = ConfigParser()
         cls.config.read(cfgname)
 
