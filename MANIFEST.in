@@ -1,0 +1,6 @@
+include test.conf.in
+include dev-requirements.txt
+include tests/*.py
+include docs/Makefile
+include docs/conf.py
+include docs/*.rst
