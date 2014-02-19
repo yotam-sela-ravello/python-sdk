@@ -191,7 +191,7 @@ class RavelloClient(object):
       results in a response of ``None``).
     """
 
-    default_url = 'https://cloud.ravellosystems.com/services'
+    default_url = 'https://cloud.ravellosystems.com/api/v1'
     default_timeout = 60
     default_retries = 3
     default_redirects = 3
