@@ -443,7 +443,7 @@ class RavelloClient(object):
         """
         apps = self.request('GET', '/applications')
         if filter is not None:
-            apps = [_match_filter(app, filter) for app in apps]
+            apps = [app for app in apps if _match_filter(app, filter)]
         return apps
 
     def create_application(self, app):
@@ -553,7 +553,7 @@ class RavelloClient(object):
         """
         bps = self.request('GET', '/blueprints')
         if filter is not None:
-            bps = [_match_filter(bp, filter) for bp in bps]
+            bps = [bp for bp in bps if _match_filter(bp, filter)]
         return bps
 
     def create_blueprint(self, bp):
