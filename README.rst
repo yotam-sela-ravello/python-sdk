@@ -8,7 +8,7 @@ Installation
 
 Installation from the Python Package Index::
 
- $ pip install ravell-sdk
+ $ pip install ravello-sdk
 
 Installation from source::
 
