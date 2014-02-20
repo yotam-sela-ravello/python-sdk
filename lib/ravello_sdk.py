@@ -126,7 +126,7 @@ def urlsplit2(url, default_scheme='http'):
     return result
 
 
-def _idempotent(self, method):
+def _idempotent(method):
     """Return whether *method* is idempotent."""
     return method in ('GET', 'HEAD', 'PUT')
 
@@ -384,8 +384,8 @@ class RavelloClient(object):
                     msg = response.getheader('ERROR-MESSAGE', 'unknown')
                     raise RavelloError('got status {0} ({1}/{2})' .format(status, code, msg))
                 response.entity = entity
-            except socket.timeout as e:
-                self._logger.debug('timeout: {0!s}'.format(e))
+            except (socket.timeout, httplib.HTTPException) as e:
+                self._logger.debug('error: {0!s}'.format(e))
                 self.close()
                 if not _idempotent(method):
                     self._logger.debug('not retrying {0} request'.format(method))
