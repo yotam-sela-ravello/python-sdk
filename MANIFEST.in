@@ -1,5 +1,4 @@
-include test.conf.in
-include dev-requirements.txt
+include test.conf.in dev-requirements.txt tox.ini
 include tests/*.py
 include docs/Makefile
 include docs/conf.py
