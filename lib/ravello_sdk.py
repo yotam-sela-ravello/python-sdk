@@ -137,6 +137,8 @@ def _match_filter(obj, flt):
         return flt(obj)
     elif not isinstance(flt, dict):
         raise TypeError('expecting a callable or a dict')
+    if isinstance(obj, list):
+        return [ob for ob in obj if _match_filter(ob, flt)]
     for fkey,fval in flt.items():
         obval = obj.get(fkey)
         if obval is None:
@@ -443,7 +445,7 @@ class RavelloClient(object):
         """
         apps = self.request('GET', '/applications')
         if filter is not None:
-            apps = [app for app in apps if _match_filter(app, filter)]
+            apps = _match_filter(apps, filter)
         return apps
 
     def create_application(self, app):
@@ -553,7 +555,7 @@ class RavelloClient(object):
         """
         bps = self.request('GET', '/blueprints')
         if filter is not None:
-            bps = [bp for bp in bps if _match_filter(bp, filter)]
+            bps = _match_filter(bps, filter)
         return bps
 
     def create_blueprint(self, bp):
@@ -585,7 +587,7 @@ class RavelloClient(object):
         """
         imgs = self.request('GET', '/images')
         if filter is not None:
-            imgs = [img for img in imgs if _match_filter(img, filter)]
+            imgs = _match_filter(imgs, filter)
         return imgs
 
     def update_image(self, img):
@@ -615,7 +617,7 @@ class RavelloClient(object):
         """
         kps = self.request('GET', '/keypairs')
         if filter is not None:
-            kps = [kp for kp in kps if _match_filter(kp, filter)]
+            kps = _match_filter(kps, filter)
         return kps
 
     def create_keypair(self, kp):
