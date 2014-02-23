@@ -609,8 +609,9 @@ class RavelloClient(object):
     def get_keypairs(self, filter=None):
         """Return a list with all keypairs.
 
-        The *flt* argument can be used to return only a subset of the keypairs.
-        See the description of the *cond* argument to :meth:`wait_for`.
+        The *filter* argument can be used to return only a subset of the
+        keypairs.  See the description of the *cond* argument to
+        :meth:`wait_for`.
         """
         kps = self.request('GET', '/keypairs')
         if filter is not None:
@@ -620,8 +621,7 @@ class RavelloClient(object):
     def create_keypair(self, kp):
         """Create a new keypair.
 
-        The *bp* parameter must be a dict describing the keypair to
-        create.
+        The *kp* parameter must be a dict describing the keypair to create.
 
         The new blueprint is returned.
         """
