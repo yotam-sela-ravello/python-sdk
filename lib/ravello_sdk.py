@@ -404,8 +404,22 @@ class RavelloClient(object):
             raise RavelloError('maximum number of redirects reached')
         return response
 
+    def reload(self, obj):
+        """Reload the object *obj*.
+
+        The object must have been returned by the API, and must be a dict with
+        an ``"_href"`` key.
+        """
+        href = obj.get('_href')
+        if href is None:
+            raise RuntimeError('obj must have an "_href" key')
+        return self.request('GET', href)
+
     def wait_for(self, obj, cond, timeout=None):
         """Wait for a condition on *obj* to become true.
+
+        The object *obj* must be reloadable. See :meth:`reload` for more
+        details.
 
         The condition *cond* must be a dict or a callable. If it is a dict, it
         lists the keys and values that the object must have. If it is a
@@ -419,12 +433,9 @@ class RavelloClient(object):
         If the condition does not become true before the timeout, a
         :class:`RavelloError` exception is raised.
         """
-        href = obj.get('_href')
-        if href is None:
-            raise RuntimeError('obj must have an "_href" key')
         end_time = time.time() + timeout
         while end_time > time.time():
-            obj = self.request('GET', href)
+            obj = self.reload(obj)
             if _match_filter(obj, cond):
                 break
             time.sleep(5)
