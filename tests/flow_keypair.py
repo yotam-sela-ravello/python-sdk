@@ -50,7 +50,6 @@ class TestKeypair(IntegrationTest):
         keypairs = list(filter(lambda kp: kp['id'] == created['id'], keypairs))
         self.assertEqual(len(keypairs), 1)
         created = copy.deepcopy(created)
-        del created['href']
         self.assertEqual(keypairs[0], created)
         keypairs = self.client.get_keypairs({'name': created['name']})
         self.assertEqual(len(keypairs), 1)

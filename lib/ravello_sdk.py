@@ -326,7 +326,7 @@ class RavelloClient(object):
         return response.entity
 
     def _request(self, method, path, body=b'', headers=[]):
-        path = self._url.path + path
+        rpath = self._url.path + path
         hdict = {}
         hdict['Accept'] = 'application/json'
         if self._cookies:
@@ -343,8 +343,8 @@ class RavelloClient(object):
             if not self.logged_in and self.have_credentials and self._autologin:
                 self._login()
             try:
-                self._logger.debug('request: {0} {1}'.format(method, path))
-                self._connection.request(method, path, body, hdict)
+                self._logger.debug('request: {0} {1}'.format(method, rpath))
+                self._connection.request(method, rpath, body, hdict)
                 response = self._connection.getresponse()
                 status = response.status
                 body = response.read()
@@ -363,21 +363,24 @@ class RavelloClient(object):
                             href = urlsplit2(response.getheader('Location')).path
                         elif method == 'POST':
                             # missing Location header e.g. with /pubkeys
-                            href = '{0}/{1}'.format(path, entity['id'])
+                            href = '{0}/{1}'.format(rpath, entity['id'])
                         else:
-                            href = path
-                        entity['href'] = href[len(self._url.path):]
+                            href = rpath
+                        entity['_href'] = href[len(self._url.path):]
+                    elif isinstance(entity, list):
+                        for elem in entity:
+                            elem['_href'] = '{0}/{1}'.format(path, elem['id'])
                 elif 300 <= status < 399:
                     loc = response.getheader('Location')
                     if loc is None:
                         raise RavelloError('no location for {0} response'.format(status))
                     if loc.startswith('/'):
-                        path = loc
+                        rpath = loc
                     else:
                         url = urlsplit2(loc)
                         if url.netloc != self._url.netloc:
                             raise RavelloError('will not chase referral to {0}'.format(loc))
-                        path = url.path
+                        rpath = url.path
                     redirects += 1
                 elif status == 404:
                     entity = None
@@ -416,9 +419,9 @@ class RavelloClient(object):
         If the condition does not become true before the timeout, a
         :class:`RavelloError` exception is raised.
         """
-        href = obj.get('href')
+        href = obj.get('_href')
         if href is None:
-            raise RuntimeError('obj must have an "href" key')
+            raise RuntimeError('obj must have an "_href" key')
         end_time = time.time() + timeout
         while end_time > time.time():
             obj = self.request('GET', href)
