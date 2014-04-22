@@ -67,7 +67,7 @@ def update_luids(obj):
             elif isinstance(value, (dict, list)):
                 update_luids(value)
     else:
-        raise TypeError('expecting list or dict')
+        return obj
 
 
 def application_state(app):
