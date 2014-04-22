@@ -1,7 +1,7 @@
 Ravello Python SDK
 ==================
 
-This is a small SDK for accessing the Ravello_ API in Python
+This is a micro-SDK for accessing the Ravello_ API in Python
 
 Installation
 ------------
@@ -58,5 +58,5 @@ License
 The Ravello Python SDK is licensed under the Apache 2.0 license.
 
 .. _Ravello: http://www.ravellosystems.com
-.. _readthedocs: http://ravello-sdk.readthedocs.org/en/latest
+.. _readthedocs: http://ravello-sdk.readthedocs.org/en
 .. _Github: https://github.com/ravello/python-sdk
