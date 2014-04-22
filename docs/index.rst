@@ -5,7 +5,7 @@ Ravello Python SDK
 Overview
 ========
 
-The Ravello Python SDK is a small SDK for using the Ravello_ service from the
+The Ravello Python SDK is a micro-SDK for using the Ravello_ service from the
 Python_ programming language. The focus is on providing a small set of bindings
 that doesn't have any external dependencies. Some features are:
 
