@@ -77,6 +77,16 @@ class TestApplication(IntegrationTest):
         self.client.wait_for(created, lambda app: application_state(app) == 'STARTED', 600)
         type(self).created = self.client.get_application(created)
 
+    def test_ae_get_vnc_url(self):
+        created = self.created
+        if created is None or application_state(created) != 'STARTED':
+            raise SkipTest('creation or start failed')
+        vm = created['deployment']['vms'][0]
+        url = self.client.get_vnc_url(created, vm)
+        self.assertIsInstance(url, six.text_type)
+        self.assertTrue(url.startswith('https://'))
+        self.assertTrue('ravellosystems.com' in url)
+
     def test_zz_delete_application(self):
         created = self.created
         if created is None:

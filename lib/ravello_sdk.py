@@ -558,6 +558,15 @@ class RavelloClient(object):
         if isinstance(vm, dict): vm = vm['id']
         self.request('POST', '/applications/{0}/vms/{1}/restart'.format(app, vm))
 
+    def get_vnc_url(self, app, vm):
+        """Get the VNC URL for the VM with ID *vm* in the application with ID *app*."""
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        headers = [('Accept', 'text/plain')]
+        url = self.request('GET', '/applications/{0}/vms/{1}/vncUrl'.format(app, vm),
+                           headers=headers)
+        return url.decode('iso-8859-1')
+
     def get_blueprint(self, bp):
         """Return the blueprint with ID *bp*, or None if it does not exist."""
         if isinstance(bp, dict): bp = bp['id']
