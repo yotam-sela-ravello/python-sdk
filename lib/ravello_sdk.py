@@ -312,7 +312,7 @@ class RavelloClient(object):
         self._connection = None
         self._cookies = None
 
-    def request(self, method, path, entity=None):
+    def request(self, method, path, entity=None, headers=None):
         """Issues a request to the API.
         
         The parsed entity is returned, or a :class:`RavelloError` exception is
@@ -322,7 +322,8 @@ class RavelloClient(object):
         added as a method.
         """
         body = json.dumps(entity).encode('utf8') if entity is not None else b''
-        response = self._request(method, path, body)
+        headers = headers if headers is not None else []
+        response = self._request(method, path, body, headers)
         return response.entity
 
     def _request(self, method, path, body=b'', headers=[]):
@@ -352,6 +353,8 @@ class RavelloClient(object):
                 if ctype == 'application/json':
                     # XXX: should detect encoding here
                     entity = json.loads(body.decode('utf8'))
+                elif ctype == 'text/plain':
+                    entity = body
                 else:
                     entity = None
                 self._logger.debug('response: {0} ({1})'.format(status, ctype))
