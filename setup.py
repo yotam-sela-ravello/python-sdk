@@ -44,5 +44,6 @@ if __name__ == '__main__':
     setup(
         package_dir = { '': 'lib' },
         py_modules = ['ravello_sdk'],
+        scripts = ['tools/ravello-create-nodes'],
         **version_info
     )

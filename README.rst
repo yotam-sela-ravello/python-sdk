@@ -1,7 +1,8 @@
 Ravello Python SDK
 ==================
 
-This is a micro-SDK for accessing the Ravello_ API in Python
+This is a micro-SDK for accessing the Ravello_ API in Python. It also contains
+a few useful utility scripts.
 
 Installation
 ------------
