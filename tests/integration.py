@@ -15,7 +15,7 @@
 import os
 import sys
 
-if sys.version_info[:2] < (3,3):
+if sys.version_info[:2] <= (2,6):
     from unittest2 import TestLoader, TextTestRunner
 else:
     from unittest import TestLoader, TextTestRunner
