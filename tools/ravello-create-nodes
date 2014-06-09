@@ -3,13 +3,13 @@
 # create-nodes.py: create undercloud nodes for Openstack
 #
 # Copyright (C) 2014 Ravello Systems, Inc.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #    http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,18 +21,16 @@ import os
 import sys
 import json
 import logging
-import textwrap
 import errno
 import six
-import json
 import copy
 
-from argparse import ArgumentParser, ArgumentError
+from argparse import ArgumentParser
 from getpass import getpass
 from fnmatch import fnmatch
 from collections import namedtuple
 
-from ravello_sdk import *
+from ravello_sdk import RavelloClient
 
 
 magic_svm_cpuids = [
@@ -176,7 +174,7 @@ def get_interfaces(args):
     """Parse the --network argument."""
     interfaces = []
     networks = args.network or ['dhcp']
-    for ix,network in enumerate(networks):
+    for ix, network in enumerate(networks):
         interface = {'name': 'eth{0}'.format(ix)}
         if network == 'dhcp':
             interface['bootproto'] = 'dhcp'
@@ -390,7 +388,7 @@ def merge_cc(a, b):
         elif isinstance(a[key], dict):
             if not isinstance(b[key], list):
                 raise ValueError('cannot merge dict with non-dict')
-            merge(a[key], b[key])
+            merge_cc(a[key], b[key])
         else:
             a[key] = b[key]
 
@@ -457,6 +455,7 @@ def update_and_publish(client, app, args):
     if args.autostop is not None:
         timeout = -1 if not args.autostop else 60 * args.autostop
         body = { 'expirationFromNowSeconds': timeout }
+        url = '/applications/{0}/setExpiration'
         client.request('POST', url.format(app['id']), body)
     published = app.get('published')
     if published:

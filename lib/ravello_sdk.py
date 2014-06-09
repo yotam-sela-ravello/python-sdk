@@ -1,11 +1,11 @@
 # Copyright 2012-2014 Ravello Systems, Inc.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #    http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -61,7 +61,7 @@ def update_luids(obj):
     if isinstance(obj, list):
         return [update_luids(elem) for elem in obj]
     elif isinstance(obj, dict):
-        for key,value in obj.items():
+        for key, value in obj.items():
             if key == 'id':
                 obj['id'] = random_luid()
             elif isinstance(value, (dict, list)):
@@ -120,7 +120,7 @@ def urlsplit2(url, default_scheme='http'):
         port = httplib.HTTPS_PORT if result.scheme == 'https' else httplib.HTTP_PORT
         updates['netloc'] = '{0}:{1}'.format(result.hostname, port)
     if not result.path:
-        updates['path'] = '/' 
+        updates['path'] = '/'
     if updates:
         result = result._replace(**updates)
     return result
@@ -139,7 +139,7 @@ def _match_filter(obj, flt):
         raise TypeError('expecting a callable or a dict')
     if isinstance(obj, list):
         return [ob for ob in obj if _match_filter(ob, flt)]
-    for fkey,fval in flt.items():
+    for fkey, fval in flt.items():
         obval = obj.get(fkey)
         if obval is None:
             return False
@@ -164,7 +164,7 @@ class RavelloClient(object):
     manages a single HTTPS connection, and implements login, redirect and retry
     functionality. A single generic :meth:`request` method is provided to issue
     API requests.
-    
+
     On top of this, most existing RESTful API calls are mapped as methods on
     this class. These mapped methods are simple wrappers around the generic
     :meth:`request` method. Some general comments on this mapping:
@@ -314,7 +314,7 @@ class RavelloClient(object):
 
     def request(self, method, path, entity=None, headers=None):
         """Issues a request to the API.
-        
+
         The parsed entity is returned, or a :class:`RavelloError` exception is
         raised on error.
 
@@ -333,7 +333,7 @@ class RavelloClient(object):
         if self._cookies:
             cookies = ['{0}={1}'.format(c.key, c.coded_value) for c in self._cookies.values()]
             hdict['Cookie'] = '; '.join(cookies)
-        for key,value in headers:
+        for key, value in headers:
             hdict[key] = value
         if body:
             hdict['Content-Type'] = 'application/json'
@@ -493,7 +493,7 @@ class RavelloClient(object):
 
     def publish_application(self, app, req={}):
         """Publish the application with ID *app*.
-        
+
         The *req* parameter, if provided, must be a dict with publish
         parameters.
         """
@@ -592,7 +592,7 @@ class RavelloClient(object):
 
         The new blueprint is returned.
         """
-        return self.request('POST', '/blueprints', req)
+        return self.request('POST', '/blueprints', bp)
 
     def delete_blueprint(self, bp):
         """Delete the blueprint with ID *bp*."""
