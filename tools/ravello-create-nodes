@@ -241,8 +241,8 @@ def get_disk_image(client, flavor, args):
         if fnmatch(image['name'], flavor.imagename):
             break
     else:
-        raise ValueError('flavor {0}: need a disk image with name {0!r}'
-                            .format(flavor.name, pattern))
+        raise ValueError('flavor {0}: need a disk image with name {1!r}'
+                            .format(flavor.name, flavor.imagename))
     return image
 
 
@@ -330,10 +330,10 @@ def get_cc_user(username):
 
 def get_cc_network_redhat(n, interfaces):
     """Return a cloud-config section for creating the static networking
-    definitions for VM number *n*."""
+    definitions for VM number *n* (Red Hat version)."""
     cloudcfg = {}
     files = cloudcfg['write_files'] = []
-    for ix, iface in enumerate(interfaces):
+    for iface in interfaces:
         ifcfg = {'path': '/etc/sysconfig/network-scripts/ifcfg-{0[name]}'.format(iface),
                  'permissions': 493 }  # 0755
         content = {'NAME': iface['name'],
@@ -348,6 +348,32 @@ def get_cc_network_redhat(n, interfaces):
         content = ''.join(['{0}={1}\n'.format(*item) for item in content.items()])
         ifcfg['content'] = content
         files.append(ifcfg)
+    cloudcfg['runcmd'] = ['shutdown -r +1']
+    return cloudcfg
+
+
+def get_cc_network_debian(n, interfaces):
+    """Return a cloud-config section for creating the static networking
+    definitions for VM number *n* (Debian/Ubuntu version)."""
+    cloudcfg = {}
+    files = cloudcfg['write_files'] = []
+    etcnetif = {'path': '/etc/network/interfaces',
+                'permissions': 493 }  # 0755
+    lines = []
+    lines.append('auto {0}\n'.format(' '.join([iface['name'] for iface in interfaces])))
+    for iface in interfaces:
+        lines.append('iface {0[name]} inet {0[bootproto]}\n'.format(iface))
+        if 'ipaddr' in iface:
+            lines.append('  address {0[ipaddr]}\n'.format(iface))
+        if 'netmask' in iface:
+            lines.append('  netmask {0[netmask]}\n'.format(iface))
+        if 'gateway' in iface:
+            lines.append('  gateway {0[gateway]}\n'.format(iface))
+        if 'dns' in iface:
+            lines.append('  dns-nameservers {0[dns]}\n'.format(iface))
+            lines.append('  dns-domain localdomain\n'.format(iface))
+    etcnetif['content'] = ''.join(lines)
+    files.append(etcnetif)
     cloudcfg['runcmd'] = ['shutdown -r +1']
     return cloudcfg
 
@@ -376,7 +402,7 @@ Flavor = namedtuple('Flavor', ('name', 'imagename', 'imagetype', 'cloudinit', 'g
 flavors = [
     Flavor('fedora', 'Fedora-x86_64-*-sda', 'DISK', True, get_cc_network_redhat),
     Flavor('pxe', 'ipxe', 'CDROM', False, None),
-    Flavor('ubuntu', 'trusty-server-cloudimg-amd64-disk1', 'DISK', True, None),
+    Flavor('ubuntu', 'trusty-server-cloudimg-amd64-disk1', 'DISK', True, get_cc_network_debian),
     Flavor('empty', None, 'DISK', False, None),
 ]
 
