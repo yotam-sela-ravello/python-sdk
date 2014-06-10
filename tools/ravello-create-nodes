@@ -24,6 +24,7 @@ import logging
 import errno
 import six
 import copy
+import socket
 
 from argparse import ArgumentParser
 from getpass import getpass
@@ -45,34 +46,41 @@ mac_base = '2c:c2:60:00:00:00'
 
 def create_parser():
     """Create the command-line parser."""
-    parser = ArgumentParser()
-    parser.add_argument('-d', '--debug', action='store_true', help='Debugging mode')
-    parser.add_argument('-u', '--username', help='Ravello username ($RAVELLO_USERNAME)')
-    parser.add_argument('-p', '--password', help='Ravello password ($RAVELLO_PASSWORD)')
-    parser.add_argument('-c', '--cpus', type=int, default=1, help='Number of CPUs')
-    parser.add_argument('-m', '--memory', type=int, default=2048, help='Node memory (MB)')
-    parser.add_argument('-s', '--disk', type=int, default=50, help='Root disk size (GB)')
+    parser = ArgumentParser(description='Create a number of nodes in Ravello')
+    parser.add_argument('-d', '--debug', action='store_true', help='enable debugging mode')
+    parser.add_argument('-u', '--username', help='Ravello API username')
+    parser.add_argument('-p', '--password', help='Ravello API password ($RAVELLO_PASSWORD)')
+    parser.add_argument('-f', '--flavor', help='install this OS flavor', default='empty',
+                        choices=[flavor.name for flavor in flavors])
+    parser.add_argument('-c', '--cpus', type=int, default=1, help='number of CPUs')
+    parser.add_argument('-m', '--memory', type=int, default=2048, help='node memory (MB)')
+    parser.add_argument('-s', '--disk', type=int, default=50, help='root disk size (GB)')
     parser.add_argument('--nic-model', help='NIC device model', default='virtio',
                         choices=('virtio', 'e1000'))
-    parser.add_argument('--disk-model', help='Disk device model', default='virtio',
+    parser.add_argument('--disk-model', help='disk device model', default='virtio',
                         choices=('virtio', 'ide'))
-    parser.add_argument('--keypair', help='Inject this keypair')
-    parser.add_argument('--network', help='Define a network', action='append')
-    parser.add_argument('-f', '--flavor', help='Install this OS flavor', default='empty',
-                        choices=[flavor.name for flavor in flavors])
-    parser.add_argument('--default-user', help='Change default user')
-    parser.add_argument('-o', '--data-file', help='Test environment datafile',
+    parser.add_argument('--keypair', help='inject this keypair')
+    parser.add_argument('--network', help='define a network ("dhcp" or network/bits)',
+                        action='append')
+    parser.add_argument('--service', help='expose IP service on PORT on head node',
+                        metavar='PORT', action='append')
+    parser.add_argument('--public-ip', help='use public IP for head node', action='store_true')
+    parser.add_argument('--all-as-head', help='all nodes are identical to head node',
+                        action='store_true')
+    parser.add_argument('--svm', help='enable nested virtualization', action='store_true')
+    parser.add_argument('--default-user', help='change default user')
+    parser.add_argument('-o', '--data-file', help='test environment datafile',
                         default='testenv.json')
-    parser.add_argument('-a', '--application', help='Add nodes to existing application')
+    parser.add_argument('-a', '--application', help='add nodes to existing application')
     parser.add_argument('--cloud', choices=('AMAZON', 'GOOGLE', 'HPCLOUD'),
-                        help='The cloud to deploy to')
-    parser.add_argument('--region', help='The region to deploy to')
+                        help='the cloud to deploy to')
+    parser.add_argument('--region', help='the region to deploy to')
     parser.add_argument('--optimization', choices=('COST', 'PERFORMANCE'),
-                        default='COST', help='The optimization to use when publishing')
+                        default='COST', help='the optimization to use when publishing')
     parser.add_argument('--no-start', action='store_true', default=False,
-                        help='Do not start the nodes')
+                        help='do not start the nodes')
     parser.add_argument('--autostop', type=int, help='Autostop in minutes')
-    parser.add_argument('count', type=int, help='Number of nodes to create')
+    parser.add_argument('count', type=int, help='the number of nodes to create')
     return parser
 
 
@@ -190,6 +198,40 @@ def get_interfaces(args):
     return interfaces
 
 
+def getservbyport(port):
+    """Like socket.getservbyport() but return a descriptive string if the
+    service is not found."""
+    try:
+        name = socket.getservbyport(port)
+    except socket.error:
+        name = 'port-{0}'.format(port)
+    return name
+
+
+def getservbyname(name):
+    """Liek socket.getservbyname() but return a ValueError with a descriptive
+    message if the ser4vice is not found."""
+    try:
+        port = socket.getservbyname(name)
+    except socket.error:
+        raise ValueError('unknown service: {0}'.format(name))
+    return port
+
+
+def get_services(args):
+    """Parse the --service argument."""
+    services = []
+    for service in args.service:
+        if service.isdigit():
+            port = int(service)
+            name = getservbyport(port)
+        else:
+            name = service
+            port = getservbyname(name)
+        services.append({'name': name, 'portRange': int(port)})
+    return services
+
+
 def connect_api(args):
     """Connect to the Ravello API and return a connection."""
     client = RavelloClient()
@@ -267,9 +309,10 @@ def convert_size(size, newunit):
 
 def create_vm_template(image, keypair, flavor, interfaces, args):
     """Create a VM template."""
-    template = { 'baseVmId': 0,
-                 'description': 'VM created by create-nodes.py',
-                 'cpuIds': magic_svm_cpuids }
+    template = {'baseVmId': 0,
+                'description': 'VM created by ravello-create-nodes'}
+    if args.svm:
+        template['cpuIds'] = magic_svm_cpuids
     if flavor.cloudinit:
         template['supportsCloudInit'] = True
     if keypair:
@@ -405,7 +448,7 @@ flavors = [
 ]
 
 
-def add_vms_to_application(app, template, flavor, interfaces, args):
+def add_vms_to_application(app, template, flavor, interfaces, services, args):
     """Add VMs to an exististing applications and personalize them."""
     design = app.setdefault('design', {})
     vms = design.setdefault('vms', [])
@@ -416,6 +459,13 @@ def add_vms_to_application(app, template, flavor, interfaces, args):
         cloudcfg = {}
         if args.default_user:
             merge_cc(cloudcfg, get_cc_user(args.default_user))
+        if i == 0 or args.all_as_head:
+            for svc in services:
+                service = {'name': svc['name'],
+                           'portRange': svc['portRange'],
+                           'protocol': 'TCP',
+                           'external': True}
+                vm['suppliedServices'].append(service)
         for ix,iface in enumerate(interfaces):
             if iface['bootproto'] == 'dhcp':
                 continue
@@ -425,7 +475,10 @@ def add_vms_to_application(app, template, flavor, interfaces, args):
             conn['device']['mac'] = iface['mac']
             conn['ipConfig']['staticIpConfig']['ip'] = iface['ipaddr']
             if ix == 0:
-                vm['suppliedServices'][0]['ip'] = iface['ipaddr']
+                for svc in vm['suppliedServices']:
+                    svc['ip'] = iface['ipaddr']
+            if ix == 0 and (i == 0 or args.all_as_head):
+                conn['ipConfig']['hasPublicIp'] = args.public_ip
         if args.network:
             merge_cc(cloudcfg, flavor.get_cc_network(i, interfaces))
         if cloudcfg:
@@ -504,7 +557,7 @@ def update_datafile(app, args):
 # Main program entry point
 
 def main():
-    debug = True
+    debug = False
 
     try:
         parser = create_parser()
@@ -517,6 +570,7 @@ def main():
 
         flavor = get_flavor(args)
         interfaces = get_interfaces(args)
+        services = get_services(args)
 
         client = connect_api(args)
 
@@ -525,7 +579,7 @@ def main():
 
         app = create_or_get_application(client, args)
         template = create_vm_template(image, keypair, flavor, interfaces, args)
-        app = add_vms_to_application(app, template, flavor, interfaces, args)
+        app = add_vms_to_application(app, template, flavor, interfaces, services, args)
 
         app = update_and_publish(client, app, args)
 
