@@ -223,16 +223,17 @@ def getservbyname(name):
 
 def get_services(args):
     """Parse the --service argument."""
-    services = []
-    for service in args.service:
+    resolved = []
+    services = args.service or []
+    for service in services:
         if service.isdigit():
             port = int(service)
             name = getservbyport(port)
         else:
             name = service
             port = getservbyname(name)
-        services.append({'name': name, 'portRange': int(port)})
-    return services
+        resolved.append({'name': name, 'portRange': int(port)})
+    return resolved
 
 
 def connect_api(args):
