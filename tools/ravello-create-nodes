@@ -77,7 +77,7 @@ def create_parser():
                         help='the cloud to deploy to')
     parser.add_argument('--region', help='the region to deploy to')
     parser.add_argument('--optimization', choices=('COST', 'PERFORMANCE'),
-                        default='COST', help='the optimization to use when publishing')
+                        help='the optimization to use when publishing')
     parser.add_argument('--no-start', action='store_true', default=False,
                         help='do not start the nodes')
     parser.add_argument('--autostop', type=int, help='Autostop in minutes')
@@ -121,6 +121,8 @@ def check_arguments(args):
             raise ValueError('cannot specify --cloud with COST optimization')
         if args.region:
             raise ValueError('cannot specify --region with COST optimization')
+    if not args.optimization:
+        args.optimization = 'PERFORMANCE' if args.cloud else 'COST'
     flavor = get_flavor(args)
     if args.keypair and not flavor.cloudinit:
         raise ValueError("flavor {0} does not support --keypair".format(flavor.name))
