@@ -260,9 +260,10 @@ def create_or_get_application(client, args):
     The application is returned as a dictionary.
     """
     if args.application:
-        app = client.get_application({'name': args.application})
-        if app is None:
+        apps = client.get_applications({'name': args.application})
+        if not apps:
             raise ValueError('application {0} not found'.format(args.application))
+        app = client.reload(apps[0])
     else:
         apps = client.get_applications()
         existing = set((app['name'] for app in apps))
