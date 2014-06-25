@@ -447,7 +447,7 @@ Flavor = namedtuple('Flavor', ('name', 'imagename', 'imagetype', 'cloudinit', 'g
 
 flavors = [
     Flavor('fedora', 'Fedora-x86_64-*-sda', 'DISK', True, get_cc_network_redhat),
-    Flavor('pxe', 'ipxe', 'CDROM', False, None),
+    Flavor('pxe', 'ipxe', 'CDROM', False, True),
     Flavor('ubuntu', 'trusty-server-cloudimg-amd64-disk1', 'DISK', True, get_cc_network_debian),
     Flavor('empty', None, 'DISK', False, None),
 ]
@@ -483,7 +483,7 @@ def add_vms_to_application(app, template, flavor, interfaces, services, args):
                         svc['ip'] = iface['ipaddr']
             if ix == 0 and (i == 0 or args.all_as_head):
                 conn['ipConfig']['hasPublicIp'] = args.public_ip
-        if args.network:
+        if args.network and callable(flavor.get_cc_network):
             merge_cc(cloudcfg, flavor.get_cc_network(i, interfaces))
         if cloudcfg:
             userdata = '#cloud-config\n'
