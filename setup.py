@@ -46,6 +46,7 @@ if __name__ == '__main__':
         package_dir = { '': 'lib' },
         py_modules = ['ravello_sdk'],
         install_requires = ['six'],
-        scripts = ['tools/ravello-create-nodes', 'tools/ravello-set-svm'],
+        scripts = ['tools/ravello-create-nodes', 'tools/ravello-set-svm',
+                   'tools/ravello-set-uuid'],
         **version_info
     )
