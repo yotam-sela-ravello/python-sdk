@@ -10,7 +10,7 @@ import argparse
 import socket
 
 from getpass import getpass
-from ravello_sdk import *
+from ravello_sdk import RavelloClient, RavelloError
 
 svm_cpuids = [
     { "value": "0000000768747541444d416369746e65", "index": "0" },
