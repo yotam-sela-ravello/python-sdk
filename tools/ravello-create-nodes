@@ -472,16 +472,15 @@ def add_vms_to_application(app, template, flavor, interfaces, services, args):
                            'external': True}
                 vm['suppliedServices'].append(service)
         for ix,iface in enumerate(interfaces):
-            if iface['bootproto'] == 'dhcp':
-                continue
-            iface['mac'] = mac_ntoa(mac_aton(mac_base) + (ix<<16) + i)
-            iface['ipaddr'] = inet_ntoa(inet_aton(iface['network']) + 10 + i)
             conn = vm['networkConnections'][ix]
+            iface['mac'] = mac_ntoa(mac_aton(mac_base) + (ix<<16) + i)
             conn['device']['mac'] = iface['mac']
-            conn['ipConfig']['staticIpConfig']['ip'] = iface['ipaddr']
-            if ix == 0:
-                for svc in vm['suppliedServices']:
-                    svc['ip'] = iface['ipaddr']
+            if iface['bootproto'] == 'static':
+                iface['ipaddr'] = inet_ntoa(inet_aton(iface['network']) + 10 + i)
+                conn['ipConfig']['staticIpConfig']['ip'] = iface['ipaddr']
+                if ix == 0:
+                    for svc in vm['suppliedServices']:
+                        svc['ip'] = iface['ipaddr']
             if ix == 0 and (i == 0 or args.all_as_head):
                 conn['ipConfig']['hasPublicIp'] = args.public_ip
         if args.network:
