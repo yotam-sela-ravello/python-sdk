@@ -330,9 +330,6 @@ class RavelloClient(object):
         rpath = self._url.path + path
         hdict = {}
         hdict['Accept'] = 'application/json'
-        if self._cookies:
-            cookies = ['{0}={1}'.format(c.key, c.coded_value) for c in self._cookies.values()]
-            hdict['Cookie'] = '; '.join(cookies)
         for key, value in headers:
             hdict[key] = value
         if body:
@@ -343,6 +340,9 @@ class RavelloClient(object):
                 self._connect()
             if not self.logged_in and self.have_credentials and self._autologin:
                 self._login()
+            if self._cookies:
+                cookies = ['{0}={1}'.format(c.key, c.coded_value) for c in self._cookies.values()]
+                hdict['Cookie'] = '; '.join(cookies)
             try:
                 self._logger.debug('request: {0} {1}'.format(method, rpath))
                 self._connection.request(method, rpath, body, hdict)
