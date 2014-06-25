@@ -336,7 +336,7 @@ def create_vm_template(image, keypair, flavor, interfaces, args):
                   'name': 'cdrom',
                   'controller': 'ide' }
         drives.append(drive)
-        template['bootOrder'] = ['CDROM', 'DISK'],
+        template['bootOrder'] = ['CDROM', 'DISK']
     if image:
         drives[-1]['baseDiskImageId'] = image['id']
     template['memorySize'] = { 'value': args.memory, 'unit': 'MB' }
