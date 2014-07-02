@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Script to enable an image for SVM
+# Script to set or update a UUID for an image or VM.
 #
 # Copyright (c) 2014 Ravello Systems Inc. Released under Apache 2 license.
 
@@ -26,9 +26,9 @@ Options:
   -n, --numeric     Skip name resolution and load the object directly by ID.
   -U <uuid>, --uuid=<uuid>
                     Set this UUID instead of generating a new one.
-  -u <username>, --username=<username> 
+  -u <username>, --username=<username>
                     Ravello API username. If absent use $RAVELLO_USERNAME.
-  -p <password>, --password=<password> 
+  -p <password>, --password=<password>
                     Ravello API password. If absent use $RAVELLO_PASSWORD.
   -d, --debug       Enable debugging mode.
 """
