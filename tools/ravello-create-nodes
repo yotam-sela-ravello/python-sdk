@@ -16,24 +16,141 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Create a virtual bare metal infrastructure.
+
+Usage:
+  ravello-create-nodes [options] [-c <cpus>] [-m <memory>] [-r <disk>]
+                       [--nic-model <model>] [--disk-model <model>]
+                       [--svm] [--network <netspec>]...
+                       [-s <service>]... [--inbound-access <access>]
+                       [-k <keypair>] [--default-user <user>]
+                       [--cloud <cloud>] [--region <region>]
+                       [--optimization <optimization>]
+                       [--no-autostart] [--autostop <interval>]
+                       [-a <application>] [--cdrom] [-f <flavor>]
+                       <image> <count>
+  ravello-create-nodes -h | --help
+
+The ravello-create-nodes (r-c-n) command creates a new "virtual bare metal"
+infrastructure. A virtual bare metal infrastructure is set of virtual machines
+that behave as if they were physical servers. They can have arbitrary hardware
+sizes, private layer-2 networking and optionally have AMD-SVM (c) features
+enabled so that they can run hypervisors.
+
+Image configuration:
+
+Some options need to perform an OS level configuration. These options include
+"--network", "--default-user" and "--keypair". For this to work it is required
+that the OS flavor is specified using "--flavor" and that CloudInit is
+installed in the image. Use "--flavor=?" to see a list of available flavors.
+
+Specifying multiple values:
+
+By default an option specifies a value that is the same for all nodes. Certain
+options however support specifying a value that is different for different
+nodes. In this case separate the values with a comma. The last value is
+repeated. For example, "--disk 100G" specifies that all nodes should have a
+100GB disk, but "--disk 100G,50G" specifies that the first node should have
+100GB but all other nodes 50GB (the 50G is repeated).
+
+Mandatory arguments:
+
+  <image>           The disk image to use for the nodes. The image must have
+                    been previously uploaded in Ravello. Specify the ID or the
+                    image name.
+  <count>           The number of nodes to create.
+
+{common_options}
+
+Arguments:
+  -c <cpus>, --cpus <cpus>
+                    The number of CPUs to use. Accepts multiple values.
+                    [default: 1]
+  -m <memory>, --memory <memory>
+                    The memory size. Specify as an integer with an optional 'M'
+                    or 'G' suffix for Megabytes and Gigabytes respectively. If
+                    no suffix is provided, 'M' is assumed. Accepts multiple
+                    values. [default: 2048]
+  -r <disk>, --disk <disk>
+                    The disk size. Specify as an integer with an optional 'M'
+                    or 'G' suffix for Megabytes and Gigabytes respectively. If
+                    no suffix is provided, 'M' is assumed. Accepts multiple
+                    values. [default: 50G]
+  --nic-model <model>
+                    The NIC type to add. Must be 'e1000' or 'virtio'.
+                    [default: virtio]
+  --disk-model <model>
+                    The disk type to add. Must be 'ide' or 'virtio'.
+                    [default: virtio]
+  --svm             Enable the AMD-SVM (C) instruction set. You will be able to
+                    run a hypervisor in the guest.
+  --network <netspec>
+                    Add a network. The network specification must either be
+                    the string 'dhcp', or in network/bits format. Requires
+                    CloudInit.
+  -s <service>, --service <service>
+                    Add a network service. Must either be a port number or a
+                    service name from /etc/services.
+  --inbound-access <access>
+                    Inbound access method. Must be either 'publicip', or
+                    'portforwarding'. This option accepts multiple values.
+                    [default: portforwarding]
+  -k <keypair>, --keypair <keypair>
+                    Specify a keypair to inject into the VM. Requires
+                    CloudInit.
+  --default-user <user>
+                    Set the default login user. Requires CloudInit.
+  --cloud <cloud>   Deploy into this cloud.
+  --region <region>
+                    Deploy into this region.
+  --optimization <optimization>
+                    Select this optimization level. Can be 'cost' or
+                    'performance'.
+  --no-autostart    Do not automatically start the application.
+  --autostop <interval>
+                    Set an autostop timer. Specify as an integer with an
+                    optional 'M' suffix for minutes or 'H' for hours. The
+                    default suffix is 'M'. A value of 0 means that the autostop
+                    is disabled. [default: 0]
+  -a <application>, --application <application>
+                    Instead of creating a new application, add the nodes to an
+                    existing application. Specify as an ID or a name.
+  --cdrom           The disk image is a bootable CD-ROM. An empty disk image
+                    will be added as well of the size specifed by --disk.
+  -f <flavor>, --flavor <flavor>
+                    The OS flavor to install. Must be one of: 'none', 'redhat'
+                    or 'debian'. [default: none]
+  -h, --help        Show this help text.
+"""
+
+from __future__ import absolute_import, print_function
 
 import os
 import sys
 import json
-import logging
-import errno
-import six
-import copy
-import socket
 
-from argparse import ArgumentParser
-from getpass import getpass
-from fnmatch import fnmatch
+from docopt import docopt
 from collections import namedtuple
-from six.moves import reduce
 
-from ravello_sdk import RavelloClient
+from ravello_sdk import RavelloClient, RavelloError
+from ravello_cli import setup_logger, create_client
+from ravello_cli import common_options, parse_common_arguments
+from ravello_cli import (validate_arg, validate_int_arg, validate_size_arg,
+        validate_enum_arg, validate_network_arg, validate_service_arg,
+        validate_interval_arg, expand_multival_arg)
+from ravello_cli import get_diskimage, get_keypair, get_application
+from ravello_cli import new_name
+from ravello_cli import inet_aton, inet_ntoa, mac_aton, mac_ntoa
 
+__doc__ = __doc__.format(common_options=common_options)
+
+prog = os.path.basename(sys.argv[0])
+
+nic_models = ('e1000', 'virtio')
+disk_models = ('ide', 'virtio')
+optimizations = ('cost', 'performance')
+flavors = []
+inbound_access = ('publicip', 'portforwarding')
 
 magic_svm_cpuids = [
     { "index": "0", "value": "0000000768747541444d416369746e65" },
@@ -45,352 +162,124 @@ magic_svm_cpuids = [
 mac_base = '2c:c2:60:00:00:00'
 
 
-def create_parser():
-    """Create the command-line parser."""
-    parser = ArgumentParser(description='Create a number of nodes in Ravello')
-    parser.add_argument('-d', '--debug', action='store_true', help='enable debugging mode')
-    parser.add_argument('-u', '--username', help='Ravello API username')
-    parser.add_argument('-p', '--password', help='Ravello API password ($RAVELLO_PASSWORD)')
-    parser.add_argument('-f', '--flavor', help='install this OS flavor', default='empty',
-                        choices=[flavor.name for flavor in flavors])
-    parser.add_argument('-c', '--cpus', type=int, default=1, help='number of CPUs')
-    parser.add_argument('-m', '--memory', type=int, default=2048, help='node memory (MB)')
-    parser.add_argument('-s', '--disk', type=int, default=50, help='root disk size (GB)')
-    parser.add_argument('--nic-model', help='NIC device model', default='virtio',
-                        choices=('virtio', 'e1000'))
-    parser.add_argument('--disk-model', help='disk device model', default='virtio',
-                        choices=('virtio', 'ide'))
-    parser.add_argument('--keypair', help='inject this keypair')
-    parser.add_argument('--network', help='define a network ("dhcp" or network/bits)',
-                        action='append')
-    parser.add_argument('--service', help='expose IP service on PORT on head node',
-                        metavar='PORT', action='append')
-    parser.add_argument('--public-ip', help='use public IP for head node', action='store_true')
-    parser.add_argument('--all-as-head', help='all nodes are identical to head node',
-                        action='store_true')
-    parser.add_argument('--svm', help='enable nested virtualization', action='store_true')
-    parser.add_argument('--default-user', help='change default user')
-    parser.add_argument('-o', '--data-file', help='test environment datafile',
-                        default='testenv.json')
-    parser.add_argument('-a', '--application', help='add nodes to existing application')
-    parser.add_argument('--cloud', choices=('AMAZON', 'GOOGLE', 'HPCLOUD'),
-                        help='the cloud to deploy to')
-    parser.add_argument('--region', help='the region to deploy to')
-    parser.add_argument('--optimization', choices=('COST', 'PERFORMANCE'),
-                        help='the optimization to use when publishing')
-    parser.add_argument('--no-start', action='store_true', default=False,
-                        help='do not start the nodes')
-    parser.add_argument('--autostop', type=int, help='Autostop in minutes')
-    parser.add_argument('count', type=int, help='the number of nodes to create')
-    return parser
+def parse_arguments(args):
+    """Check the command line arguments (values only, no references)."""
+    values = parse_common_arguments(args)
+    values['count'] = count = validate_int_arg(args, '<count>', 1, 100)
+    values['image'] = validate_arg(args, '<image>')
+    values['cpus'] = [validate_int_arg(value, '--cpus', 1, 4)
+                      for value in expand_multival_arg(args, '--cpus', count)]
+    values['memory'] = [validate_size_arg(value, '--memory', 'M', 1024)
+                        for value in expand_multival_arg(args, '--memory', count)]
+    values['disk'] = [validate_size_arg(value, '--disk', 'M', 2000)
+                      for value in expand_multival_arg(args, '--disk', count)]
+    values['nic_model'] = validate_enum_arg(args, '--nic-model', nic_models)
+    values['disk_model'] = validate_enum_arg(args, '--disk-model', disk_models)
+    values['svm'] = bool(args.get('--svm'))
+    values['network'] = [validate_network_arg(value, '--network')
+                         for value in args['--network'] or ['dhcp']]
+    values['service'] = [validate_service_arg(value, '--service')
+                         for value in ['ssh'] + args['--service']]
+    values['inbound_access'] = [validate_enum_arg(args, '--inbound-access', inbound_access)
+                                for value in expand_multival_arg(args, '--inbound-access', count)]
+    values['keypair'] = args['--keypair']
+    values['default_user'] = args['--default-user']
+    values['cloud'] = args['--cloud']
+    values['region'] = args['--region']
+    optim = validate_enum_arg(args, '--optimization', optimizations, default='unspec')
+    if optim == 'unspec':
+        optim = 'performance' if values['cloud'] else 'cost'
+    elif values['cloud'] and optim != 'performance':
+        raise ValueError('specifying --cloud requires performance optimization')
+    values['optimization'] = optim
+    values['autostart'] = not bool(args['--no-autostart'])
+    values['autostop'] = validate_interval_arg(args, '--autostop', 'H')
+    values['application'] = args['--application']
+    values['cdrom'] = bool(args.get('--cdrom'))
+    values['flavor'] = validate_enum_arg(args, '--flavor', [f.name for f in flavors])
+    flavor = get_flavor(values['flavor'])
+    if flavor and not flavor.cloudinit:
+        for name in ('--network', '--keypair', '--default-user'):
+            if args.get(name):
+                raise ValueError('specifying {0} requires a flavor with CloudInit\n'
+                                 'Use "{1} --flavor=?" for a list'.format(name, prog))
+    return values
 
 
-def setup_logger(args):
-    """Setup the logger."""
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter('%(levelname)s %(message)s'))
-    logger.addHandler(handler)
+def show_help(args):
+    """Check for various --foo=? arguments and show help if needed."""
+    # Note that --cloud=? is handled later because it depends on the
+    # application itself.
+    if args['flavor'] == '?':
+        print('Available flavors:')
+        for flavor in flavors:
+            print(" * '{0}' - {1}".format(flavor.name, flavor.description))
+        return True
+    if args['nic_model'] == '?':
+        print('Available NIC models:')
+        for model in nic_models:
+            print(" * '{0}'".format(model))
+        return True
+    if args['disk_model'] == '?':
+        print('Available disk models:')
+        for model in disk_models:
+            print(" * '{0}'".format(model))
+        return True
+    return False
 
 
-def check_arguments(args):
-    """Further checks on the command-line arguments.
-
-    Raises a ``ValueError`` if there is an error.
-    """
-    if args.username is None:
-        args.username = os.environ.get('RAVELLO_USERNAME')
-    if args.username is None:
-        raise ValueError('specify either --username or set $RAVELLO_USERNAME')
-    if args.password is None:
-        args.password = os.environ.get('RAVELLO_PASSWORD')
-    if args.password is None:
-        if not sys.stdin.isatty():
-            raise ValueError('specify either --password, set $RAVELLO_PASSWORD,'
-                             ' or run interactively')
-        args.password = getpass('Please enter Ravello API password: ')
-    if not 1 <= args.cpus <= 4:
-        raise ValueError('--cpu must be between 1 and 4')
-    if not 512 <= args.memory <= 16384:
-        raise ValueError('--memory must be between 512 and 16384 MB')
-    if not 4 <= args.disk <= 450:
-        raise ValueError('--disk must be between 4 and 450 GB')
-    if args.optimization == 'COST':
-        if args.cloud:
-            raise ValueError('cannot specify --cloud with COST optimization')
-        if args.region:
-            raise ValueError('cannot specify --region with COST optimization')
-    if not args.optimization:
-        args.optimization = 'PERFORMANCE' if args.cloud else 'COST'
-    flavor = get_flavor(args)
-    if args.keypair and not flavor.cloudinit:
-        raise ValueError("flavor {0} does not support --keypair".format(flavor.name))
-    if args.default_user and not flavor.cloudinit:
-        raise ValueError("flavor {0} does not support --default-user".format(flavor.name))
-    if args.network and not flavor.get_cc_network:
-        raise ValueError("flavor {0} does not support --network".format(flavor.name))
+def resolve_arguments(client, args):
+    """Check references in command-line arguments to objects in Ravello."""
+    values = args.copy()
+    if args['image']:
+        image = get_diskimage(client, args['image'])
+        if image is None:
+            raise ValueError('no such image: {0}'.format(args['image']))
+        values['image'] = image
+    if args['keypair']:
+        keypair = get_keypair(client, args['keypair'])
+        if keypair is None:
+            raise ValueError('no such keypair: {0}'.format(args['keypair']))
+        values['keypair'] = keypair
+    if args['application']:
+        application = get_application(client, args['application'])
+        if application is None:
+            raise ValueError('no such application: {0}'.format(args['application']))
+        values['application'] = application
+    if args['flavor']:
+        values['flavor'] = get_flavor(args['flavor'])
+    return values
 
 
-def get_flavor(args):
-    """Return the current flavor."""
-    for flavor in flavors:
-        if flavor.name == args.flavor:
-            return flavor
-    raise AssertionError
-
-
-def mac_aton(s):
-    """Convert a Mac address to an integer."""
-    try:
-        mac = list(map(lambda x: int(x, 16), s.split(':')))
-        mac = reduce(lambda a,b: a+b, [mac[i] << (5-i)*8 for i in range(6)])
-    except (ValueError, IndexError):
-        raise ValueError('illegal Mac: {0}'.format(s))
-    return mac
-
-def mac_ntoa(i):
-    """Convert an int to a mac address."""
-    return ':'.join(map(lambda x: '%02x'%x, [(i >> (5-j)*8) & 0xff for j in range(6)]))
-
-
-def inet_aton(s):
-    """Convert a dotted-quad to an int."""
-    try:
-        addr = list(map(int, s.split('.')))
-        addr = reduce(lambda a,b: a+b, [addr[i] << (3-i)*8 for i in range(4)])
-    except (ValueError, IndexError):
-        raise ValueError('illegal IP: {0}'.format(s))
-    return addr
-
-def inet_ntoa(i):
-    """Convert an int to dotted quad."""
-    return '.'.join(map(str, [(i >> (3-j)*8) & 0xff for j in range(4)]))
-
-
-def parse_cidr(network):
-    """Parse a address/bits CIDR type network address."""
-    try:
-        addr, bits = network.split('/')
-        addr = inet_aton(addr)
-        bits = int(bits)
-    except ValueError:
-        raise ValueError('illegal network: {0}'.format(network))
-    netmask = (0xffffffff << (32 - bits)) & 0xffffffff
-    network = addr & netmask
-    return network, netmask
-
-
-def get_interfaces(args):
-    """Parse the --network argument."""
-    interfaces = []
-    networks = args.network or ['dhcp']
-    for ix, network in enumerate(networks):
-        interface = {'name': 'eth{0}'.format(ix)}
-        if network == 'dhcp':
-            interface['bootproto'] = 'dhcp'
-        else:
-            interface['bootproto'] = 'static'
-            network, netmask = parse_cidr(network)
-            interface['network'] = inet_ntoa(network)
-            interface['netmask'] = inet_ntoa(netmask)
-            if ix == 0:
-                interface['gateway'] = inet_ntoa(network + 1)
-                interface['dns'] = interface['gateway']
-        interfaces.append(interface)
-    return interfaces
-
-
-def getservbyport(port):
-    """Like socket.getservbyport() but return a descriptive string if the
-    service is not found."""
-    try:
-        name = socket.getservbyport(port)
-    except socket.error:
-        name = 'port-{0}'.format(port)
-    return name
-
-
-def getservbyname(name):
-    """Liek socket.getservbyname() but return a ValueError with a descriptive
-    message if the ser4vice is not found."""
-    try:
-        port = socket.getservbyname(name)
-    except socket.error:
-        raise ValueError('unknown service: {0}'.format(name))
-    return port
-
-
-def get_services(args):
-    """Parse the --service argument."""
-    resolved = []
-    services = args.service or []
-    for service in services:
-        if service.isdigit():
-            port = int(service)
-            name = getservbyport(port)
-        else:
-            name = service
-            port = getservbyname(name)
-        resolved.append({'name': name, 'portRange': int(port)})
-    return resolved
-
-
-def connect_api(args):
-    """Connect to the Ravello API and return a connection."""
-    client = RavelloClient()
-    client.connect()
-    client.login(args.username, args.password)
-    return client
-
-
-def new_name(prefix, existing):
-    """Return a name that starts with *prefix* and is not in *existing*."""
-    for i in range(len(existing)+1):
-        name = '{0}-{1}'.format(prefix, i)
-        if name not in existing:
-            break
-    existing.add(name)
-    return name
-
-
-def create_or_get_application(client, args):
-    """Create a new application or get an existing one.
-
-    The application is returned as a dictionary.
-    """
-    if args.application:
-        apps = client.get_applications({'name': args.application})
-        if not apps:
-            raise ValueError('application {0} not found'.format(args.application))
-        app = client.reload(apps[0])
-    else:
-        apps = client.get_applications()
-        existing = set((app['name'] for app in apps))
-        name = new_name('Cloud', existing)
-        app = { 'name': name, 'description': 'Created by create-nodes.py' }
-        app = client.create_application(app)
-    print('Using application {0}.'.format(app['name']))
-    return app
-
-
-def get_disk_image(client, flavor, args):
-    """Get the disk image.
-
-    The image is determined by --flavor.
-    """
-    if not flavor.imagename:
-        return
-    images = client.request('GET', '/diskImages')
-    for image in images:
-        if fnmatch(image['name'], flavor.imagename):
-            break
-    else:
-        raise ValueError('flavor {0}: need a disk image with name {1!r}'
-                            .format(flavor.name, flavor.imagename))
-    return image
-
-
-def get_keypair(client, args):
-    """Get the key pair.
-
-    The keypair is specified by name using --keypair.
-    """
-    if not args.keypair:
-        return
-    keypairs = client.get_keypairs({'name': args.keypair})
-    if len(keypairs) == 0:
-        raise ValueError('keypair not found: {0}'.format(args.keypair))
-    return keypairs[0]
-
-
-def convert_size(size, newunit):
-    """Convert a disk/memory size strucuture to a specific unit."""
-    value, unit = size['value'], size['unit']
-    sizekb = value * (1024 if unit == 'MB' else 1024*1024)
-    divisor = 1 if newunit == 'KB' else 1024 if newunit == 'MB' else 1024*1024
-    return sizekb // divisor
-
-
-def create_vm_template(image, keypair, flavor, interfaces, args):
-    """Create a VM template."""
-    template = {'baseVmId': 0,
-                'description': 'VM created by ravello-create-nodes'}
-    if args.svm:
-        template['cpuIds'] = magic_svm_cpuids
-    if flavor.cloudinit:
-        template['supportsCloudInit'] = True
-    if keypair:
-        template['keypairId'] = keypair['id']
-    drives = template['hardDrives'] = []
-    drive = { 'index': 1,
-              'type': 'DISK',
-              'name': 'root',
-              'boot': True,
-              'controller': args.disk_model,
-              'size': { 'value': args.disk, 'unit': 'GB' } }
-    drives.append(drive)
-    if flavor.imagetype == 'CDROM':
-        drive = { 'index': 2,
-                  'type': 'CDROM',
-                  'name': 'cdrom',
-                  'controller': 'ide' }
-        drives.append(drive)
-        template['bootOrder'] = ['CDROM', 'DISK']
-    if image:
-        drives[-1]['baseDiskImageId'] = image['id']
-    template['memorySize'] = { 'value': args.memory, 'unit': 'MB' }
-    template['numCpus'] = args.cpus
-    template['os'] = 'linux_manuel'  # sic.
-    connections = template['networkConnections'] = []
-    for ix,iface in enumerate(interfaces):
-        nic = { 'index': ix,
-                'deviceType': args.nic_model,
-                'useAutomaticMac': False }
-        ipcfg = { 'hasPublicIp': False }
-        if iface['bootproto'] == 'dhcp':
-            ipcfg['autoIpConfig'] = {}
-        else:
-            ipcfg['staticIpConfig'] = {'mask': iface['netmask']}
-            if 'gateway' in iface:
-                ipcfg['staticIpConfig']['gateway'] = iface['gateway']
-            if 'dns' in iface:
-                ipcfg['staticIpConfig']['dns'] = iface['dns']
-        connection = { 'name': iface['name'],
-                       'device': nic,
-                       'ipConfig': ipcfg }
-        connections.append(connection)
-    services = template['suppliedServices'] = []
-    service = { 'name': 'ssh',
-                'portRange': '22',
-                'protocol': 'TCP',
-                'external': True }
-    services.append(service)
-    return template
-
+# CloudInit stuff
 
 def get_cc_user(username):
     """Return a cloud-config section for changing the default user."""
     return {'system_info': {'default_user': {'name': username}}}
 
 
-def get_cc_network_redhat(n, interfaces):
+def get_cc_network_redhat(vm):
     """Return a cloud-config section for creating the static networking
-    definitions for VM number *n* (Red Hat version)."""
+    definitions for *vm*."""
     cloudcfg = {}
     files = cloudcfg['write_files'] = []
-    for iface in interfaces:
-        ifcfg = {'path': '/etc/sysconfig/network-scripts/ifcfg-{0[name]}'.format(iface),
+    for conn in vm['networkConnections']:
+        ifcfg = {'path': '/etc/sysconfig/network-scripts/ifcfg-{0}'.format(conn['name']),
                  'permissions': 493 }  # 0755
-        content = {'NAME': iface['name'],
-                   'BOOTPROTO': iface['bootproto'],
-                   'HWADDR': iface['mac'],
+        ipcfg = conn['ipConfig']
+        stcfg = ipcfg.get('staticIpConfig')
+        bootproto = 'static' if stcfg else 'dhcp'
+        content = {'NAME': conn['name'],
+                   'BOOTPROTO': bootproto,
+                   'HWADDR': conn['device']['mac'],
                    'ONBOOT': 'yes'}
-        for key in ('ipaddr', 'netmask', 'gateway'):
-            if key in iface:
-                content[key.upper()] = iface[key]
-        if 'dns' in iface:
-            content['DNS1'] = iface['dns']
+        if bootproto == 'static':
+            content['IPADDR'] = stcfg['ip']
+            content['NETMASK'] = stcfg['mask']
+            if 'gateway' in stcfg:
+                content['GATEWAY'] = stcfg['gateway']
+            if 'dns' in ipcfg:
+                content['DNS1'] = stcfg['dns']
         content = ''.join(['{0}={1}\n'.format(*item) for item in content.items()])
         ifcfg['content'] = content
         files.append(ifcfg)
@@ -398,26 +287,27 @@ def get_cc_network_redhat(n, interfaces):
     return cloudcfg
 
 
-def get_cc_network_debian(n, interfaces):
+def get_cc_network_debian(vm):
     """Return a cloud-config section for creating the static networking
-    definitions for VM number *n* (Debian/Ubuntu version)."""
+    definitions for *vm*."""
     cloudcfg = {}
     files = cloudcfg['write_files'] = []
     etcnetif = {'path': '/etc/network/interfaces',
                 'permissions': 493 }  # 0755
     lines = []
-    lines.append('auto {0}\n'.format(' '.join([iface['name'] for iface in interfaces])))
-    for iface in interfaces:
-        lines.append('iface {0[name]} inet {0[bootproto]}\n'.format(iface))
-        if 'ipaddr' in iface:
-            lines.append('  address {0[ipaddr]}\n'.format(iface))
-        if 'netmask' in iface:
-            lines.append('  netmask {0[netmask]}\n'.format(iface))
-        if 'gateway' in iface:
-            lines.append('  gateway {0[gateway]}\n'.format(iface))
+    lines.append('auto {0}\n'.format(' '.join([conn['name']
+                        for conn in vm['networkConnections']])))
+    for conn in vm['networkConnections']:
+        ipcfg = conn['ipConfig']
+        bootproto = 'static' if ipcfg.get('staticIpConfig') else 'dhcp',
+        lines.append('iface {0} inet {1}\n'.format(conn['name'], bootproto))
+        lines.append('  address {0}\n'.format(ipcfg['ip']))
+        lines.append('  netmask {0}\n'.format(ipcfg['mask']))
+        if 'gateway' in ipcfg:
+            lines.append('  gateway {0}\n'.format(ipcfg['gateway']))
         if 'dns' in iface:
-            lines.append('  dns-nameservers {0[dns]}\n'.format(iface))
-            lines.append('  dns-domain localdomain\n'.format(iface))
+            lines.append('  dns-nameservers {0}\n'.format(ipcfg['dns']))
+            lines.append('  dns-domain localdomain\n')
     etcnetif['content'] = ''.join(lines)
     files.append(etcnetif)
     cloudcfg['runcmd'] = ['shutdown -r +1']
@@ -443,119 +333,179 @@ def merge_cc(a, b):
 
 # VM flavors
 
-Flavor = namedtuple('Flavor', ('name', 'imagename', 'imagetype', 'cloudinit', 'get_cc_network'))
+Flavor = namedtuple('Flavor', ('name', 'description', 'cloudinit', 'get_cc_network'))
 
-flavors = [
-    Flavor('fedora', 'Fedora-x86_64-*-sda', 'DISK', True, get_cc_network_redhat),
-    Flavor('pxe', 'ipxe', 'CDROM', False, True),
-    Flavor('ubuntu', 'trusty-server-cloudimg-amd64-disk1', 'DISK', True, get_cc_network_debian),
-    Flavor('empty', None, 'DISK', False, None),
-]
+flavor = Flavor('none', 'Empty flavor, performs no guest customization', False, None)
+flavors.append(flavor)
+flavor = Flavor('redhat', 'Red Hat family (RHEL, Fedora, CentOS, SL, ...)',
+                True, get_cc_network_redhat)
+flavors.append(flavor)
+flavor = Flavor('debian', 'Debian family (Debian, Ubuntu, Mint, ...)',
+                True, get_cc_network_debian)
+flavors.append(flavor)
 
 
-def add_vms_to_application(app, template, flavor, interfaces, services, args):
-    """Add VMs to an exististing applications and personalize them."""
+def get_flavor(name):
+    """Return a flavor by name."""
+    for flavor in flavors:
+        if flavor.name == name:
+            return flavor
+
+
+# Main functions
+
+def create_application(client, args):
+    """Create a new application or get an existing one.
+
+    The application is returned as a dictionary.
+    """
+    if args['application']:
+        app = args['application']
+    else:
+        apps = client.get_applications()
+        existing = set((app['name'] for app in apps))
+        name = new_name('Cloud', existing)
+        app = {'name': name, 'description': 'Created by r-c-n'}
+        app = client.create_application(app)
+    print('Using application {0}.'.format(app['name']))
+    return app
+
+
+def create_vm(name, args, n):
+    """Create a VM definition."""
+    # General settings
+    vm = {'name': name,
+          'description': 'Created by r-c-n',
+          'os': 'linux_manuel',  # sic.
+          'baseVmId': 0}
+    vm['numCpus'] = args['cpus'][n]
+    vm['memorySize'] = {'value': args['memory'][n]//(2**20), 'unit': 'MB'}
+    if args['svm']:
+        vm['cpuIds'] = magic_svm_cpuids
+    if args['keypair']:
+        vm['keypairId'] = args['keypair']['id']
+    # Disk + optional cdrom
+    drives = vm['hardDrives'] = []
+    drive = {'index': 1,
+             'type': 'DISK',
+             'name': 'root',
+             'boot': True,
+             'controller': args['disk_model'],
+             'size': {'value': args['disk'][n]//(2**20), 'unit': 'MB'}}
+    drives.append(drive)
+    if args['cdrom']:
+        drive = {'index': 2,
+                 'type': 'CDROM',
+                 'name': 'cdrom',
+                 'controller': 'ide'}
+        drives.append(drive)
+        vm['bootOrder'] = ['CDROM', 'DISK']
+    drives[-1]['baseDiskImageId'] = args['image']['id']
+    # Supplied services.
+    services = vm['suppliedServices'] = []
+    for svc in args['service']:
+        service = {'name': svc[0],
+                   'portRange': svc[1],
+                   'protocol': 'TCP',
+                   'external': True}
+        services.append(service)
+    # Network interfaces
+    connections = vm['networkConnections'] = []
+    for ix,network in enumerate(args['network']):
+        nic = {'index': ix,
+               'deviceType': args['nic_model'],
+               'useAutomaticMac': False,
+               'mac': mac_ntoa(mac_aton(mac_base) + (ix<<16) + n)}
+        ipcfg = {'hasPublicIp': args['inbound_access'][n] == 'publicip'}
+        if network == 'dhcp':
+            ipcfg['autoIpConfig'] = {}
+        else:
+            stcfg = {'ip': inet_ntoa(inet_aton(network[0]) + 10 + n),
+                     'mask': network[1]}
+            # First network interface gets a gateway, a DNS server, and it
+            # hosts all the services.
+            if ix == 0:
+                stcfg['gateway'] = inet_ntoa(inet_aton(network[0]) + 1)
+                stcfg['dns'] = stcfg['gateway']
+                for svc in vm['suppliedServices']:
+                    svc['ip'] = stcfg['ip']
+            ipcfg['staticIpConfig'] = stcfg
+        connection = {'name': 'eth{0}'.format(ix),
+                      'device': nic,
+                      'ipConfig': ipcfg}
+        connections.append(connection)
+    # CloudInit
+    if args['flavor'].cloudinit:
+        vm['supportsCloudInit'] = True
+        cloudcfg = {}
+        if args['default_user']:
+            merge_cc(cloudcfg, get_cc_user(args['default_user']))
+        merge_cc(cloudcfg, args['flavor'].get_cc_network(vm))
+        userdata = '#cloud-config\n'
+        userdata += json.dumps(cloudcfg, indent=2)
+        userdata += '\n'
+        vm['configurationManagement'] = {'userData': userdata}
+    return vm
+
+
+def update_application(client, app, args):
+    """Add all VMs to a (new or existing) application."""
+    # Add all VMs and save updates.
     design = app.setdefault('design', {})
     vms = design.setdefault('vms', [])
     existing = set((vm['name'] for vm in vms))
-    for i in range(args.count):
-        vm = copy.deepcopy(template)
-        vm['name'] = new_name('VM', existing)
-        cloudcfg = {}
-        if args.default_user:
-            merge_cc(cloudcfg, get_cc_user(args.default_user))
-        if i == 0 or args.all_as_head:
-            for svc in services:
-                service = {'name': svc['name'],
-                           'portRange': svc['portRange'],
-                           'protocol': 'TCP',
-                           'external': True}
-                vm['suppliedServices'].append(service)
-        for ix,iface in enumerate(interfaces):
-            conn = vm['networkConnections'][ix]
-            iface['mac'] = mac_ntoa(mac_aton(mac_base) + (ix<<16) + i)
-            conn['device']['mac'] = iface['mac']
-            if iface['bootproto'] == 'static':
-                iface['ipaddr'] = inet_ntoa(inet_aton(iface['network']) + 10 + i)
-                conn['ipConfig']['staticIpConfig']['ip'] = iface['ipaddr']
-                if ix == 0:
-                    for svc in vm['suppliedServices']:
-                        svc['ip'] = iface['ipaddr']
-            if ix == 0 and (i == 0 or args.all_as_head):
-                conn['ipConfig']['hasPublicIp'] = args.public_ip
-        if args.network and callable(flavor.get_cc_network):
-            merge_cc(cloudcfg, flavor.get_cc_network(i, interfaces))
-        if cloudcfg:
-            userdata = '#cloud-config\n'
-            userdata += json.dumps(cloudcfg, indent=2)
-            userdata += '\n'
-            vm['configurationManagement'] = { 'userData': userdata }
+    for i in range(args['count']):
+        name = new_name('VM', existing)
+        vm = create_vm(name, args, i)
         vms.append(vm)
+    print('Added {0} VMs to application.'.format(args['count']))
+    client.update_application(app)
     return app
 
 
-def create_publish_request(args):
-    request = { 'startAllVms': not args.no_start }
-    if args.cloud:
-        request['preferredCloud'] = args.cloud
-    if args.region:
-        request['preferredRegion'] = args.region
-    if args.optimization:
-        level = '{0}_OPTIMIZED'.format(args.optimization)
-        request['optimizationLevel'] = level
-    return request
+def show_cloud_options(client, app, args):
+    """Show possible publish locations for *app*."""
+    if args['cloud'] != '?':
+        return False
+    try:
+        options = client.get_application_publish_locations(app)
+    except RavelloError:
+        options = []
+    print('Available cloud options:')
+    if not options:
+        print('  no suitable cloud found')
+    for opt in options:
+        print(" * '{0}', region: '{1}'".format(opt['cloudName'], opt['regionName']))
+    return True
 
 
-def update_and_publish(client, app, args):
+def publish_application(client, app, args):
     """Publish a new application, or publish updates to an existing app."""
-    client.update_application(app)
-    if args.autostop is not None:
-        timeout = -1 if not args.autostop else 60 * args.autostop
-        body = { 'expirationFromNowSeconds': timeout }
-        url = '/applications/{0}/setExpiration'
-        client.request('POST', url.format(app['id']), body)
+    req = {'expirationFromNowSeconds': args['autostop'] or -1}
+    client.set_application_expiration(app, req)
     published = app.get('published')
     if published:
-        url = '/applications/{0}/publishUpdates'
-        if args.no_start:
-            url += '?startAllDraftVms=false'
-        body = None
+        client.publish_application_updates(app, autostart=args['autostart'])
+        what = 'application updates'
+        whatvms = 'newly added VMs'
     else:
-        url = '/applications/{0}/publish'
-        body = create_publish_request(args)
-    client.request('POST', url.format(app['id']), body)
+        req = {'startAllVms': args['autostart']}
+        if args['cloud']:
+            req['preferredCloud'] = args['cloud']
+        if args['region']:
+            req['preferredRegion'] = args['region']
+        if args['optimization']:
+            level = '{0}_OPTIMIZED'.format(args['optimization'].upper())
+            req['optimizationLevel'] = level
+        client.publish_application(app, req)
+        what = 'application'
+        whatvms = 'all VMs'
+    if args['autostart']:
+        print('Published {0}, started {1}.'.format(what, whatvms))
+    else:
+        print('Published {0}, not starting VMs.'.format(what))
     app = client.reload(app)
-    print('Added {0} VMs to application.'.format(args.count))
     return app
-
-
-def update_datafile(app, args):
-    """Write node information to an environment description file.
-
-    If the file exists, it is updated. Otherwise it is created.
-    """
-    try:
-        with open(args.data_file, 'r') as fin:
-            desc = json.load(fin)
-    except (IOError, OSError) as e:
-        if e.errno != errno.ENOENT:
-            six.reraise(*sys.exc_info())
-        desc = {}
-    nodes = desc['nodes'] = []
-    for vm in app['design']['vms']:
-        drive = [drive for drive in vm['hardDrives'] if drive['type'] == 'DISK'][0]
-        nic = vm['networkConnections'][0]['device']
-        node = { 'cpu': vm['numCpus'],
-                 'memory': convert_size(vm['memorySize'], 'KB'),
-                 'disk': convert_size(drive['size'], 'GB'),
-                 'arch': 'amd64',
-                 'mac': nic['mac'],
-                 'pm_type': 'pxe_ravello',
-                 'pm_addr': '{0[id]}/{1[id]}'.format(app, vm) }
-        nodes.append(node)
-    with open(args.data_file, 'w') as fout:
-        json.dump(desc, fout, indent=2, sort_keys=True)
-    print('Updated {0.data_file} with {0.count} new node definitions.'.format(args))
 
 
 # Main program entry point
@@ -564,37 +514,37 @@ def main():
     debug = False
 
     try:
-        parser = create_parser()
-        args = parser.parse_args()
-        check_arguments(args)
+        args = docopt(__doc__)
 
-        debug = args.debug
+        debug = bool(args['--debug'])
+        logger = setup_logger(debug)
 
-        setup_logger(args)
+        args = parse_arguments(args)
+        if show_help(args):
+            return 0
 
-        flavor = get_flavor(args)
-        interfaces = get_interfaces(args)
-        services = get_services(args)
+        client = create_client(args)
+        args = resolve_arguments(client, args)
 
-        client = connect_api(args)
+        logger.debug('parsed args: %s', repr(args))
 
-        image = get_disk_image(client, flavor, args)
-        keypair = get_keypair(client, args)
+        app = create_application(client, args)
+        update_application(client, app, args)
 
-        app = create_or_get_application(client, args)
-        template = create_vm_template(image, keypair, flavor, interfaces, args)
-        app = add_vms_to_application(app, template, flavor, interfaces, services, args)
+        if show_cloud_options(client, app, args):
+            client.delete_application(app)
+            return 0
 
-        app = update_and_publish(client, app, args)
+        app = publish_application(client, app, args)
 
-        update_datafile(app, args)
+        logger.debug('published app: %s', repr(app))
 
     except Exception as e:
         if debug:
-            raise six.reraise(*sys.exc_info())
+            raise
         sys.stdout.write('Error: {0!s}\n'.format(e))
         sys.exit(1)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

@@ -312,6 +312,9 @@ class RavelloClient(object):
         self._connection = None
         self._cookies = None
 
+    # The request() method is the main function. All other methods are a small
+    # shim on top of this.
+
     def request(self, method, path, entity=None, headers=None):
         """Issues a request to the API.
 
@@ -372,7 +375,8 @@ class RavelloClient(object):
                         entity['_href'] = href[len(self._url.path):]
                     elif isinstance(entity, list):
                         for elem in entity:
-                            elem['_href'] = '{0}/{1}'.format(path, elem['id'])
+                            if 'id' in elem:
+                                elem['_href'] = '{0}/{1}'.format(path, elem['id'])
                 elif 300 <= status < 399:
                     loc = response.getheader('Location')
                     if loc is None:
@@ -527,10 +531,13 @@ class RavelloClient(object):
         if isinstance(app, dict): app = app['id']
         self.request('POST', '/applications/{0}/restart'.format(app), req)
 
-    def publish_application_updates(self, app):
+    def publish_application_updates(self, app, autostart=True):
         """Publish updates for the application with ID *app*."""
         if isinstance(app, dict): app = app['id']
-        self.request('POST', '/applications/{0}/publishUpdates'.format(app))
+        url = '/applications/{0}/publishUpdates'.format(app)
+        if not autostart:
+            url += '?startAllDraftVms=false'
+        self.request('POST', url)
 
     def set_application_expiration(self, app, req):
         """Set the expiration for the application with ID *app*.
@@ -539,6 +546,12 @@ class RavelloClient(object):
         """
         if isinstance(app, dict): app = app['id']
         self.request('POST', '/applications/{0}/setExpiration'.format(app), req)
+
+    def get_application_publish_locations(self, app, req={}):
+        """Get a list of locations where *app* can be published."""
+        if isinstance(app, dict): app = app['id']
+        url = '/applications/{0}/findPublishLocations'.format(app)
+        return self.request('POST', url, req)
 
     def start_vm(self, app, vm):
         """Start the VM with ID *vm* in the application with ID *app*."""
@@ -628,6 +641,36 @@ class RavelloClient(object):
         """Delete the image with ID *img*."""
         if isinstance(img, dict): img = img['id']
         self.request('DELETE', '/images/{0}'.format(img))
+
+    def get_diskimage(self, img):
+        """Return the disk image with ID *img*, or None if it does not exist."""
+        if isinstance(img, dict): img = img['id']
+        return self.request('GET', '/diskImages/{0}'.format(img))
+
+    def get_diskimages(self, filter=None):
+        """Return a list with all disk images.
+
+        The *filter* argument can be used to return only a subset of the
+        disk images. See the description of the *cond* argument to
+        :meth:`wait_for`.
+        """
+        imgs = self.request('GET', '/diskImages')
+        if filter is not None:
+            imgs = _match_filter(imgs, filter)
+        return imgs
+
+    def update_diskimage(self, img):
+        """Update an existing image.
+
+        The *img* parameter must be the updated image.  The updated disk image
+        is returned.
+        """
+        return self.request('PUT', '/diskImages/{0}'.format(img['id']), img)
+
+    def delete_diskimage(self, img):
+        """Delete the image with ID *img*."""
+        if isinstance(img, dict): img = img['id']
+        self.request('DELETE', '/diskImages/{0}'.format(img))
 
     def get_keypair(self, kp):
         """Return the keypair with ID *kp*, or None if it does not exist."""
