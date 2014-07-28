@@ -278,7 +278,7 @@ def get_cc_network_redhat(vm):
             content['NETMASK'] = stcfg['mask']
             if 'gateway' in stcfg:
                 content['GATEWAY'] = stcfg['gateway']
-            if 'dns' in ipcfg:
+            if 'dns' in stcfg:
                 content['DNS1'] = stcfg['dns']
         content = ''.join(['{0}={1}\n'.format(*item) for item in content.items()])
         ifcfg['content'] = content
