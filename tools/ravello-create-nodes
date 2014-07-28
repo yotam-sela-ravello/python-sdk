@@ -286,6 +286,7 @@ def get_cc_user(username):
                 'default_user': {
                     'name': username,
                     'passwd': 'nNfoV1qIPixN2',  # 'ravelloCloud' - console only
+                    'lock-passwd': False,
                     'sudo': 'ALL=(ALL) NOPASSWD:ALL'}}}
 
 
