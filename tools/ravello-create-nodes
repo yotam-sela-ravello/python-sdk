@@ -97,6 +97,7 @@ Arguments:
                     CloudInit.
   --default-user <user>
                     Set the default login user. Requires CloudInit.
+                    [default: ravello]
   --cloud <cloud>   Deploy into this cloud.
   --region <region>
                     Deploy into this region.
@@ -118,8 +119,7 @@ Arguments:
   --cdrom           The disk image is a bootable CD-ROM. An empty disk image
                     will be added as well of the size specifed by --disk.
   -f <flavor>, --flavor <flavor>
-                    The OS flavor to install. Must be one of: 'none', 'redhat'
-                    or 'debian'. [default: none]
+                    The OS family of the image. Must be 'redhat' or 'debian'.
   -i <image>, --image <image>
                     The disk image to use for the nodes. The image must have
                     been previously uploaded in Ravello. Specify the ID or the
@@ -131,6 +131,7 @@ Arguments:
 from __future__ import absolute_import, print_function
 
 import os
+import re
 import sys
 import json
 
@@ -140,7 +141,7 @@ from collections import namedtuple
 from ravello_sdk import RavelloClient, RavelloError
 from ravello_cli import setup_logger, create_client
 from ravello_cli import common_options, parse_common_arguments
-from ravello_cli import (validate_arg, validate_int_arg, validate_size_arg,
+from ravello_cli import (validate_int_arg, validate_size_arg,
         validate_enum_arg, validate_network_arg, validate_service_arg,
         validate_interval_arg, expand_multival_arg)
 from ravello_cli import get_diskimage, get_keypair, get_application
@@ -190,8 +191,8 @@ def parse_arguments(args):
     values['default_user'] = args['--default-user']
     values['cloud'] = args['--cloud']
     values['region'] = args['--region']
-    optim = validate_enum_arg(args, '--optimization', optimizations, default='unspec')
-    if optim == 'unspec':
+    optim = validate_enum_arg(args, '--optimization', optimizations)
+    if optim is None:
         optim = 'performance' if values['cloud'] else 'cost'
     elif values['cloud'] and optim != 'performance':
         raise ValueError('specifying --cloud requires performance optimization')
@@ -203,12 +204,6 @@ def parse_arguments(args):
     values['cdrom'] = bool(args.get('--cdrom'))
     values['flavor'] = validate_enum_arg(args, '--flavor', [f.name for f in flavors])
     values['image'] = args['--image']
-    flavor = get_flavor(values['flavor'])
-    if flavor and not flavor.cloudinit:
-        for name in ('--network', '--keypair', '--default-user'):
-            if args.get(name):
-                raise ValueError('specifying {0} requires a flavor with CloudInit\n'
-                                 'Use "{1} --flavor=?" for a list'.format(name, prog))
     return values
 
 
@@ -234,6 +229,8 @@ def show_help(args):
     return False
 
 
+re_flavor = re.compile('\[flavor: (\w+)\]')
+
 def resolve_arguments(client, args):
     """Check references in command-line arguments to objects in Ravello."""
     values = args.copy()
@@ -254,14 +251,42 @@ def resolve_arguments(client, args):
         values['application'] = application
     if args['flavor']:
         values['flavor'] = get_flavor(args['flavor'])
+    elif args['image']:
+        mobj = re_flavor.search(image.get('description', ''))
+        if mobj:
+            flavor = get_flavor(mobj.group(1))
+            if flavor:
+                values['flavor'] = flavor
+    if values['flavor']:
+        print("Using flavor '{0}'.".format(values['flavor'].name))
     return values
+
+
+def final_args_check(args):
+    """Final arguments check."""
+    flavor = args['flavor']
+    if args['network'] != 'dhcp' and flavor is None:
+        raise ValueError('specifying --network requires specifying a flavor.\n'
+                         'Use "{0} --flavor=?" for a list'.format(prog))
+    if args['keypair'] and flavor is None:
+        raise ValueError('specifying --keypair requires specifying a flavor.\n'
+                         'Use "{0} --flavor=?" for a list'.format(prog))
+    if args['default_user'] != 'ravello' and flavor is None:
+        raise ValueError('specifying --default-user requires specifying a flavor.\n'
+                         'Use "{0} --flavor=?" for a list'.format(prog))
 
 
 # CloudInit stuff
 
 def get_cc_user(username):
     """Return a cloud-config section for changing the default user."""
-    return {'system_info': {'default_user': {'name': username}}}
+    return {'disable_root': False,
+            'ssh_pwauth': False,
+            'system_info': {
+                'default_user': {
+                    'name': username,
+                    'passwd': 'nNfoV1qIPixN2',  # 'ravelloCloud' - console only
+                    'sudo': 'ALL=(ALL) NOPASSWD:ALL'}}}
 
 
 def get_cc_network_redhat(vm):
@@ -305,14 +330,15 @@ def get_cc_network_debian(vm):
                         for conn in vm['networkConnections']])))
     for conn in vm['networkConnections']:
         ipcfg = conn['ipConfig']
-        bootproto = 'static' if ipcfg.get('staticIpConfig') else 'dhcp',
+        stcfg = ipcfg.get('staticIpConfig')
+        bootproto = 'static' if stcfg else 'dhcp'
         lines.append('iface {0} inet {1}\n'.format(conn['name'], bootproto))
-        lines.append('  address {0}\n'.format(ipcfg['ip']))
-        lines.append('  netmask {0}\n'.format(ipcfg['mask']))
-        if 'gateway' in ipcfg:
-            lines.append('  gateway {0}\n'.format(ipcfg['gateway']))
-        if 'dns' in iface:
-            lines.append('  dns-nameservers {0}\n'.format(ipcfg['dns']))
+        lines.append('  address {0}\n'.format(stcfg['ip']))
+        lines.append('  netmask {0}\n'.format(stcfg['mask']))
+        if 'gateway' in stcfg:
+            lines.append('  gateway {0}\n'.format(stcfg['gateway']))
+        if 'dns' in stcfg:
+            lines.append('  dns-nameservers {0}\n'.format(stcfg['dns']))
             lines.append('  dns-domain localdomain\n')
     etcnetif['content'] = ''.join(lines)
     files.append(etcnetif)
@@ -341,8 +367,6 @@ def merge_cc(a, b):
 
 Flavor = namedtuple('Flavor', ('name', 'description', 'cloudinit', 'get_cc_network'))
 
-flavor = Flavor('none', 'Empty flavor, performs no guest customization', False, None)
-flavors.append(flavor)
 flavor = Flavor('redhat', 'Red Hat family (RHEL, Fedora, CentOS, SL, ...)',
                 True, get_cc_network_redhat)
 flavors.append(flavor)
@@ -376,7 +400,7 @@ def create_application(client, args):
         name = new_name('Cloud', existing)
         app = {'name': name, 'description': 'Created by r-c-n'}
         app = client.create_application(app)
-    print('Using application {0}.'.format(app['name']))
+    print("Using application '{0}'.".format(app['name']))
     return app
 
 
@@ -445,11 +469,9 @@ def create_vm(name, args, n):
                       'ipConfig': ipcfg}
         connections.append(connection)
     # CloudInit
-    if args['flavor'].cloudinit:
+    if args['flavor'] and args['flavor'].cloudinit:
         vm['supportsCloudInit'] = True
-        cloudcfg = {}
-        if args['default_user']:
-            merge_cc(cloudcfg, get_cc_user(args['default_user']))
+        cloudcfg = get_cc_user(args['default_user'])
         merge_cc(cloudcfg, args['flavor'].get_cc_network(vm))
         userdata = '#cloud-config\n'
         userdata += json.dumps(cloudcfg, indent=2)
@@ -535,6 +557,7 @@ def main():
 
         client = create_client(args)
         args = resolve_arguments(client, args)
+        final_args_check(args)
 
         logger.debug('parsed args: %s', repr(args))
 

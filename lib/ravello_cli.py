@@ -55,15 +55,6 @@ def parse_common_arguments(args):
     return values
 
 
-def validate_arg(args, name, default=None):
-    """Validate a string argument."""
-    value = args.get(name) if isinstance(args, dict) else args
-    if value is None:
-        if default is None:
-            raise ValueError('missing required option: {0}'.format(name))
-    return value
-
-
 def validate_bool_arg(args, name):
     """Validate a boolean argument."""
     value = args.get(name) if isinstance(args, dict) else args
@@ -79,6 +70,8 @@ def validate_bool_arg(args, name):
 def validate_int_arg(args, name, low=None, high=None):
     """Validate an integer command-line argument."""
     value = args.get(name) if isinstance(args, dict) else args
+    if not value:
+        return 0
     try:
         intval = int(value)
     except ValueError:
@@ -96,7 +89,7 @@ def _validate_suffix_arg(suffixes, args, name, default_suffix, low=None, high=No
     # Validate an argument with a suffix.
     value = args.get(name) if isinstance(args, dict) else args
     if not value:
-        raise ValueError('missing value for {0}'.format(value))
+        return
     if value.isdigit():
         base = value
         suffix = default_suffix
@@ -133,13 +126,11 @@ def validate_interval_arg(args, name, default_suffix, low=None, high=None):
     return _validate_suffix_arg(_interval_suffixes, args, name, default_suffix, low, high)
 
 
-def validate_enum_arg(args, name, choices, allow_query=True, default=None):
+def validate_enum_arg(args, name, choices, allow_query=True):
     """Validate an enum argument."""
     value = args.get(name) if isinstance(args, dict) else args
     if not value:
-        if default is None:
-            raise ValueError('missing required option: {0}'.format(name))
-        return default
+        return
     if value == '?' and allow_query:
         return value
     lcase = value.lower()
@@ -151,6 +142,8 @@ def validate_enum_arg(args, name, choices, allow_query=True, default=None):
 def validate_network_arg(args, name):
     """Validate a network argument. Can be either 'dhcp' or network/bits."""
     value = args.get(name) if isinstance(args, dict) else args
+    if not value:
+        return
     if value == 'dhcp':
         return value
     try:
