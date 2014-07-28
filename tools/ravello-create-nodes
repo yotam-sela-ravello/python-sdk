@@ -180,7 +180,7 @@ def parse_arguments(args):
                          for value in args['--network'] or ['dhcp']]
     values['service'] = [validate_service_arg(value, '--service')
                          for value in ['ssh'] + args['--service']]
-    values['inbound_access'] = [validate_enum_arg(args, '--inbound-access', inbound_access)
+    values['inbound_access'] = [validate_enum_arg(value, '--inbound-access', inbound_access)
                                 for value in expand_multival_arg(args, '--inbound-access', count)]
     values['keypair'] = args['--keypair']
     values['default_user'] = args['--default-user']
