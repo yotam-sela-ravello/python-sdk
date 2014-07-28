@@ -44,7 +44,7 @@ version_info = {
 if __name__ == '__main__':
     setup(
         package_dir = { '': 'lib' },
-        py_modules = ['ravello_sdk'],
+        py_modules = ['ravello_sdk', 'ravello_cli'],
         install_requires = ['six', 'docopt'],
         scripts = ['tools/ravello-create-nodes', 'tools/ravello-set-svm',
                    'tools/ravello-set-uuid'],
