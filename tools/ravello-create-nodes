@@ -27,8 +27,8 @@ Usage:
                        [--cloud <cloud>] [--region <region>]
                        [--optimization <optimization>]
                        [--no-autostart] [--autostop <interval>]
-                       [-a <application>] [--cdrom] [-f <flavor>]
-                       [-i <image>] <count>
+                       [-a <application> | -n <name>] [--cdrom]
+                       [-f <flavor>] [-i <image>] <count>
   ravello-create-nodes -h | --help
 
 The ravello-create-nodes (r-c-n) command creates a new "virtual bare metal"
@@ -112,6 +112,9 @@ Arguments:
   -a <application>, --application <application>
                     Instead of creating a new application, add the nodes to an
                     existing application. Specify as an ID or a name.
+  -n <name>, --name <name>
+                    The name of the application to use. If not specified then a
+                    new unique application name is created.
   --cdrom           The disk image is a bootable CD-ROM. An empty disk image
                     will be added as well of the size specifed by --disk.
   -f <flavor>, --flavor <flavor>
@@ -196,6 +199,7 @@ def parse_arguments(args):
     values['autostart'] = not bool(args['--no-autostart'])
     values['autostop'] = validate_interval_arg(args, '--autostop', 'H')
     values['application'] = args['--application']
+    values['name'] = args['--name']
     values['cdrom'] = bool(args.get('--cdrom'))
     values['flavor'] = validate_enum_arg(args, '--flavor', [f.name for f in flavors])
     values['image'] = args['--image']
@@ -363,6 +367,9 @@ def create_application(client, args):
     """
     if args['application']:
         app = args['application']
+    elif args['name']:
+        app = {'name': args['name'], 'description': 'Created by r-c-n'}
+        app = client.create_application(app)
     else:
         apps = client.get_applications()
         existing = set((app['name'] for app in apps))
