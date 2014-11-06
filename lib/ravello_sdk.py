@@ -40,7 +40,8 @@ __all__ = ['random_luid', 'update_luids', 'application_state', 'new_name',
            'RavelloError', 'RavelloClient']
 
 http_methods = {'POST': requests.post, 'GET': requests.get, 'PUT': requests.put, 'DELETE': requests.delete}
-
+DEFAULT_HTTPS_PORT = 443
+DEFAULT_HTTP_PORT = 80
 
 def random_luid():
     """Return a new random local ID."""
@@ -118,7 +119,7 @@ def urlsplit2(url, default_scheme='http'):
     result = urlparse.urlsplit(url)
     updates = {}
     if result.port is None:
-        port = 443 if result.scheme == 'https' else 80
+        port = DEFAULT_HTTPS_PORT if result.scheme == 'https' else DEFAULT_HTTP_PORT
         updates['netloc'] = '{0}:{1}'.format(result.hostname, port)
     if not result.path:
         updates['path'] = '/'
@@ -288,7 +289,7 @@ class RavelloClient(object):
         auth = '{0}:{1}'.format(self._username, self._password)
         auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
         headers = [('Authorization', 'Basic {0}'.format(auth))]
-        response = self._request('POST', '/login', '', headers)
+        response = self.request('POST', '/login', headers=headers)
         self._cookies = SimpleCookie()
         self._cookies.load(response.headers.get('Set-Cookie'))
         self._autologin = True
@@ -298,7 +299,7 @@ class RavelloClient(object):
         """Logout from the API. This invalidates the authentication cookie."""
         if not self.logged_in:
             return
-        self._request('POST', '/logout', '', [])
+        self.request('POST', '/logout')
         self._cookies = None
 
     def close(self):
