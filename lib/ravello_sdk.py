@@ -289,7 +289,7 @@ class RavelloClient(object):
         auth = '{0}:{1}'.format(self._username, self._password)
         auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
         headers = [('Authorization', 'Basic {0}'.format(auth))]
-        response = self.request('POST', '/login', headers=headers)
+        response = self._request('POST', '/login', b'', headers)
         self._cookies = SimpleCookie()
         self._cookies.load(response.headers.get('Set-Cookie'))
         self._autologin = True
