@@ -21,15 +21,14 @@ import logging
 import time
 import json
 import random
+import requests
 
 # Python 2.x / 3.x module name differences
 try:
     from urllib import parse as urlparse
-    from http import client as httplib
     from http.cookies import SimpleCookie
 except ImportError:
     import urlparse
-    import httplib
     from Cookie import SimpleCookie
 
 pyver = sys.version_info[:2]
@@ -40,10 +39,13 @@ if pyver not in [(2, 6), (2, 7)] and pyver < (3, 3):
 __all__ = ['random_luid', 'update_luids', 'application_state', 'new_name',
            'RavelloError', 'RavelloClient']
 
+http_methods = {'POST': requests.post, 'GET': requests.get, 'PUT': requests.put, 'DELETE': requests.delete}
+DEFAULT_HTTPS_PORT = 443
+DEFAULT_HTTP_PORT = 80
 
 def random_luid():
     """Return a new random local ID."""
-    return random.randint(0, 1<<63)
+    return random.randint(0, 1 << 63)
 
 
 def update_luids(obj):
@@ -117,7 +119,7 @@ def urlsplit2(url, default_scheme='http'):
     result = urlparse.urlsplit(url)
     updates = {}
     if result.port is None:
-        port = httplib.HTTPS_PORT if result.scheme == 'https' else httplib.HTTP_PORT
+        port = DEFAULT_HTTPS_PORT if result.scheme == 'https' else DEFAULT_HTTP_PORT
         updates['netloc'] = '{0}:{1}'.format(result.hostname, port)
     if not result.path:
         updates['path'] = '/'
@@ -198,7 +200,7 @@ class RavelloClient(object):
     default_retries = 3
     default_redirects = 3
 
-    def __init__(self, username=None, password=None, url=None, timeout=None, retries=None):
+    def __init__(self, username=None, password=None, url=None, timeout=None, retries=None, proxy_url=None):
         """Create a new client.
 
         The *username* and *password* parameters specify the credentials to use
@@ -215,8 +217,10 @@ class RavelloClient(object):
         self._autologin = True
         self._cookies = None
         self._user_info = None
-        self._connection = None
         self._set_url(url or self.default_url)
+        self._proxies = {}
+        if proxy_url is not None:
+            self._proxies = {"http": proxy_url, "https": proxy_url}
 
     @property
     def url(self):
@@ -227,7 +231,7 @@ class RavelloClient(object):
     @property
     def connected(self):
         """Whether or not the client is connected to the API."""
-        return self._connection is not None
+        return self._cookies is not None
 
     @property
     def have_credentials(self):
@@ -249,7 +253,7 @@ class RavelloClient(object):
             raise RuntimeError('cannot change URL when connected')
         self._url = urlsplit2(url)
 
-    def connect(self, url=None):
+    def connect(self, url=None, proxy_url=None):
         """Connect to the API.
 
         It is not mandatory to call this method. If this method is not called,
@@ -257,14 +261,8 @@ class RavelloClient(object):
         """
         if url is not None:
             self._set_url(url)
-        self._connect()
-
-    def _connect(self):
-        if self.connected:
-            raise RuntimeError('already connected')
-        self._connection = httplib.HTTPSConnection(self._url.hostname, self._url.port,
-                                                   timeout=self.timeout)
-        self._connection.connect()
+        if proxy_url is not None:
+            self._proxies = {"http": proxy_url, "https": proxy_url}
 
     def login(self, username=None, password=None):
         """Login to the API.
@@ -291,9 +289,9 @@ class RavelloClient(object):
         auth = '{0}:{1}'.format(self._username, self._password)
         auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
         headers = [('Authorization', 'Basic {0}'.format(auth))]
-        response = self._request('POST', '/login', '', headers)
+        response = self._request('POST', '/login', b'', headers)
         self._cookies = SimpleCookie()
-        self._cookies.load(response.getheader('Set-Cookie'))
+        self._cookies.load(response.headers.get('Set-Cookie'))
         self._autologin = True
         self._user_info = response.entity
 
@@ -301,15 +299,13 @@ class RavelloClient(object):
         """Logout from the API. This invalidates the authentication cookie."""
         if not self.logged_in:
             return
-        self._request('POST', '/logout')
+        self.request('POST', '/logout')
         self._cookies = None
 
     def close(self):
         """Close the connection to the API."""
         if not self.connected:
             return
-        self._connection.close()
-        self._connection = None
         self._cookies = None
 
     # The request() method is the main function. All other methods are a small
@@ -329,18 +325,16 @@ class RavelloClient(object):
         response = self._request(method, path, body, headers)
         return response.entity
 
-    def _request(self, method, path, body=b'', headers=[]):
+    def _request(self, method, path, body=b'', headers=None):
         rpath = self._url.path + path
-        hdict = {}
-        hdict['Accept'] = 'application/json'
+        abpath = self.default_url + path
+        hdict = {'Accept': 'application/json'}
         for key, value in headers:
             hdict[key] = value
         if body:
             hdict['Content-Type'] = 'application/json'
         retries = redirects = 0
         while retries < self.retries and redirects < self.redirects:
-            if not self.connected:
-                self._connect()
             if not self.logged_in and self.have_credentials and self._autologin:
                 self._login()
             if self._cookies:
@@ -348,37 +342,32 @@ class RavelloClient(object):
                 hdict['Cookie'] = '; '.join(cookies)
             try:
                 self._logger.debug('request: {0} {1}'.format(method, rpath))
-                self._connection.request(method, rpath, body, hdict)
-                response = self._connection.getresponse()
-                status = response.status
-                body = response.read()
-                ctype = response.getheader('Content-Type')
+                response = http_methods[method](abpath, data=body, headers=hdict, proxies=self._proxies, timeout=self.timeout)
+                status = response.status_code
+                ctype = response.headers.get('Content-Type')
                 if ctype == 'application/json':
-                    # XXX: should detect encoding here
-                    entity = json.loads(body.decode('utf8'))
-                elif ctype == 'text/plain':
-                    entity = body
+                    entity = response.json()
                 else:
                     entity = None
                 self._logger.debug('response: {0} ({1})'.format(status, ctype))
                 if 200 <= status < 299:
                     if isinstance(entity, dict) and entity.get('id'):
-                        if response.getheader('Content-Location'):
-                            href = urlsplit2(response.getheader('Content-Location')).path
-                        elif response.getheader('Location'):
-                            href = urlsplit2(response.getheader('Location')).path
+                        if response.headers.get('Content-Location'):
+                            href = urlsplit2(response.headers.get('Content-Location')).path
+                        elif response.headers.get('Location'):
+                            href = urlsplit2(response.headers.get('Location')).path
                         elif method == 'POST':
                             # missing Location header e.g. with /pubkeys
-                            href = '{0}/{1}'.format(rpath, entity['id'])
+                            href = '{0}/{1}'.format(abpath, entity['id'])
                         else:
-                            href = rpath
+                            href = abpath
                         entity['_href'] = href[len(self._url.path):]
                     elif isinstance(entity, list):
                         for elem in entity:
                             if 'id' in elem:
                                 elem['_href'] = '{0}/{1}'.format(path, elem['id'])
                 elif 300 <= status < 399:
-                    loc = response.getheader('Location')
+                    loc = response.headers.get('Location')
                     if loc is None:
                         raise RavelloError('no location for {0} response'.format(status))
                     if loc.startswith('/'):
@@ -392,11 +381,11 @@ class RavelloClient(object):
                 elif status == 404:
                     entity = None
                 else:
-                    code = response.getheader('ERROR-CODE', 'unknown')
-                    msg = response.getheader('ERROR-MESSAGE', 'unknown')
+                    code = response.headers.get('ERROR-CODE', 'unknown')
+                    msg = response.headers.get('ERROR-MESSAGE', 'unknown')
                     raise RavelloError('got status {0} ({1}/{2})' .format(status, code, msg))
                 response.entity = entity
-            except (socket.timeout, httplib.HTTPException) as e:
+            except (socket.timeout, ValueError) as e:
                 self._logger.debug('error: {0!s}'.format(e))
                 self.close()
                 if not _idempotent(method):
@@ -495,16 +484,17 @@ class RavelloClient(object):
         if isinstance(app, dict): app = app['id']
         self.request('DELETE', '/applications/{0}'.format(app))
 
-    def publish_application(self, app, req={}):
+    def publish_application(self, app, req=None):
         """Publish the application with ID *app*.
 
         The *req* parameter, if provided, must be a dict with publish
         parameters.
         """
-        if isinstance(app, dict): app = app['id']
+        if isinstance(app, dict):
+            app = app['id']
         self.request('POST', '/applications/{0}/publish'.format(app), req)
 
-    def start_application(self, app, req={}):
+    def start_application(self, app, req=None):
         """Start the application with ID *app*.
 
         The *req* parameter, if provided, must be a dict with start
@@ -513,7 +503,7 @@ class RavelloClient(object):
         if isinstance(app, dict): app = app['id']
         self.request('POST', '/applications/{0}/start'.format(app), req)
 
-    def stop_application(self, app, req={}):
+    def stop_application(self, app, req=None):
         """Stop the application with ID *app*.
 
         The *req* parameter, if provided, must be a dict with stop
@@ -522,7 +512,7 @@ class RavelloClient(object):
         if isinstance(app, dict): app = app['id']
         self.request('POST', '/applications/{0}/stop'.format(app), req)
 
-    def restart_application(self, app, req={}):
+    def restart_application(self, app, req=None):
         """Restart the application with ID *app*.
 
         The *req* parameter, if provided, must be a dict with restart
@@ -547,7 +537,7 @@ class RavelloClient(object):
         if isinstance(app, dict): app = app['id']
         self.request('POST', '/applications/{0}/setExpiration'.format(app), req)
 
-    def get_application_publish_locations(self, app, req={}):
+    def get_application_publish_locations(self, app, req=None):
         """Get a list of locations where *app* can be published."""
         if isinstance(app, dict): app = app['id']
         url = '/applications/{0}/findPublishLocations'.format(app)
