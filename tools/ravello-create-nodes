@@ -265,7 +265,7 @@ def resolve_arguments(client, args):
 def final_args_check(args):
     """Final arguments check."""
     flavor = args['flavor']
-    if args['network'] != 'dhcp' and flavor is None:
+    if args['network'] != ['dhcp'] and flavor is None:
         raise ValueError('specifying --network requires specifying a flavor.\n'
                          'Use "{0} --flavor=?" for a list'.format(prog))
     if args['keypair'] and flavor is None:
