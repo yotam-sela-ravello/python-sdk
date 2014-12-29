@@ -759,3 +759,30 @@ class RavelloClient(object):
         if filter is not None:
             users = _match_filter(users, filter)
         return users
+
+    def create_user(self, user):
+        """Invite a new user to organization.
+
+        The *user* parameter must be a dict describing the user to invite.
+
+        The new user is returned.
+        """
+        return self.request('POST', '/users', user)
+
+    def update_user(self, user, userId):
+        """Update an existing user.
+
+        The *user* parameter must be the updated user. The way to update a
+        user (or any other resource) is to first retrieve it, make the
+        updates client-side, and then use this method to make the update.
+        In this case, note however that you can only provide email, name,
+        roles, and surname (and email cannot be changed).
+        
+        The updated user is returned.
+        """
+        return self.request('PUT', '/users/{0}'.format(userId), user)
+
+    def delete_user(self, user):
+        """Delete a user with ID *user*."""
+        if isinstance(user, dict): user = user['id']
+        self.request('DELETE', '/users/{0}'.format(user))
