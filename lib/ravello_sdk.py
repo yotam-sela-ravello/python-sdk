@@ -543,6 +543,12 @@ class RavelloClient(object):
         url = '/applications/{0}/findPublishLocations'.format(app)
         return self.request('POST', url, req)
 
+    def get_blueprint_publish_locations(self, bp, req=None):
+        """Get a list of locations where *bp* can be published."""
+        if isinstance(bp, dict): bp = bp['id']
+        url = '/blueprints/{0}/findPublishLocations'.format(bp)
+        return self.request('POST', url, req)
+
     def start_vm(self, app, vm):
         """Start the VM with ID *vm* in the application with ID *app*."""
         if isinstance(app, dict): app = app['id']
