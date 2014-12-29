@@ -555,6 +555,12 @@ class RavelloClient(object):
         if isinstance(vm, dict): vm = vm['id']
         self.request('POST', '/applications/{0}/vms/{1}/stop'.format(app, vm))
 
+    def poweroff_vm(self, app, vm):
+        """Power off the VM with ID *vm* in the application with ID *app*."""
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        self.request('POST', '/applications/{0}/vms/{1}/poweroff'.format(app, vm))
+
     def restart_vm(self, app, vm):
         """Restart the VM with ID *vm* in the application with ID *app*."""
         if isinstance(app, dict): app = app['id']
