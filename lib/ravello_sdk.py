@@ -794,3 +794,16 @@ class RavelloClient(object):
         and new passwords.
         """
         return self.request('PUT', '/users/{0}/changepw'.format(user), passwords)
+
+    def get_billing(self, filter=None):
+        """Return a list with all applications' charges incurred since
+        beginning of the month.
+
+        The *filter* argument can be used to return only a subset of the
+        applications. See the description of the *cond* argument to
+        :meth:`wait_for`.
+        """
+        billing = self.request('GET', '/billing')
+        if filter is not None:
+            billing = _match_filter(billing, filter)
+        return billing
