@@ -817,3 +817,27 @@ class RavelloClient(object):
     def get_events(self):
         """Return a list of all possible event names."""
         return self.request('GET', '/events')
+
+    def get_alerts(self):
+        """Return a list of all alerts that user is registered to.
+        
+        If user is an administrator, list contains all alerts that the
+        organization is registered too. 
+        """
+        return self.request('GET', '/userAlerts')
+
+    def create_alert(self, eventName, userId=None):
+        """Registers a user to an alert.
+        
+        User must be an administrator to specify a *userId*.
+        """
+        req = {'eventName': eventName}
+        if isinstance(userId, int): req['userId'] = userId
+        return self.request('POST', '/userAlerts', req)
+    
+    def delete_alert(self, alertId):
+        """Delete a specific userAlert.
+        
+        Specifiy an *alertId* to unregister a user from it.
+        """
+        return self.request('DELETE', '/userAlerts/{0}'.format(alertId))
