@@ -549,6 +549,27 @@ class RavelloClient(object):
         url = '/blueprints/{0}/findPublishLocations'.format(bp)
         return self.request('POST', url, req)
 
+    def get_vm(self, app, vm):
+        """Return the vm with ID *vm* in the appplication with ID *app*,
+        or None if it does not exist.
+        """
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        return self.request('GET', '/applications/{0}/vms/{1}'.format(app, vm))
+
+    def get_vms(self, app, filter=None):
+        """Return a list with all vms (for a given app).
+
+        The *filter* argument can be used to return only a subset of the
+        applications. See the description of the *cond* argument to
+        :meth:`wait_for`.
+        """
+        if isinstance(app, dict): app = app['id']
+        apps = self.request('GET', '/applications/{0}/vms'.format(app))
+        if filter is not None:
+            apps = _match_filter(apps, filter)
+        return apps
+
     def start_vm(self, app, vm):
         """Start the VM with ID *vm* in the application with ID *app*."""
         if isinstance(app, dict): app = app['id']
