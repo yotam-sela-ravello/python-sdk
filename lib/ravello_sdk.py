@@ -807,3 +807,9 @@ class RavelloClient(object):
         if filter is not None:
             billing = _match_filter(billing, filter)
         return billing
+
+    def get_billing_for_month(self, year, month):
+        """Return a list with all applications' charges incurred during the
+        specified month and year.
+        """
+        return self.request('GET', '/billing?year={0}&month={1}'.format(year, month))
