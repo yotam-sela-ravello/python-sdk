@@ -841,3 +841,12 @@ class RavelloClient(object):
         Specifiy an *alertId* to unregister a user from it.
         """
         return self.request('DELETE', '/userAlerts/{0}'.format(alertId))
+
+    def search_notifications(self, query):
+        """Return list of notifications regarding given criteria.
+        
+        The *query* parameter must be a dict describing the notifications to
+        match. Technically, all 4 of the following params are optional:
+        appId, notificationLevel, maxResults, dateRange
+        """
+        return self.request('POST', '/notifications/search', query)
