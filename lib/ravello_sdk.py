@@ -813,3 +813,7 @@ class RavelloClient(object):
         specified month and year.
         """
         return self.request('GET', '/billing?year={0}&month={1}'.format(year, month))
+
+    def get_events(self):
+        """Return a list of all possible event names."""
+        return self.request('GET', '/events')
