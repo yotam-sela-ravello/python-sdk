@@ -743,3 +743,19 @@ class RavelloClient(object):
     def generate_keypair(self):
         """Generate a new keypair and return it."""
         return self.request('POST', '/keypairs/generate')
+
+    def get_user(self, user):
+        """Return the user with ID *user*, or None if it does not exist."""
+        if isinstance(user, dict): user = user['id']
+        return self.request('GET', '/users/{0}'.format(user))
+
+    def get_users(self, filter=None):
+        """Return a list with all users.
+
+        The *filter* argument can be used to return only a subset of the
+        users. See the description of the *cond* argument to :meth:`wait_for`.
+        """
+        users = self.request('GET', '/users')
+        if filter is not None:
+            users = _match_filter(users, filter)
+        return users
