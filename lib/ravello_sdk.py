@@ -786,3 +786,11 @@ class RavelloClient(object):
         """Delete a user with ID *user*."""
         if isinstance(user, dict): user = user['id']
         self.request('DELETE', '/users/{0}'.format(user))
+
+    def changepw_user(self, passwords, user):
+        """Change the password of a user with ID *user*.
+
+        The *passwords* parameter must be a dict describing the existing
+        and new passwords.
+        """
+        return self.request('PUT', '/users/{0}/changepw'.format(user), passwords)
