@@ -543,6 +543,33 @@ class RavelloClient(object):
         url = '/applications/{0}/findPublishLocations'.format(app)
         return self.request('POST', url, req)
 
+    def get_blueprint_publish_locations(self, bp, req=None):
+        """Get a list of locations where *bp* can be published."""
+        if isinstance(bp, dict): bp = bp['id']
+        url = '/blueprints/{0}/findPublishLocations'.format(bp)
+        return self.request('POST', url, req)
+
+    def get_vm(self, app, vm):
+        """Return the vm with ID *vm* in the appplication with ID *app*,
+        or None if it does not exist.
+        """
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        return self.request('GET', '/applications/{0}/vms/{1}'.format(app, vm))
+
+    def get_vms(self, app, filter=None):
+        """Return a list with all vms (for a given app).
+
+        The *filter* argument can be used to return only a subset of the
+        applications. See the description of the *cond* argument to
+        :meth:`wait_for`.
+        """
+        if isinstance(app, dict): app = app['id']
+        apps = self.request('GET', '/applications/{0}/vms'.format(app))
+        if filter is not None:
+            apps = _match_filter(apps, filter)
+        return apps
+
     def start_vm(self, app, vm):
         """Start the VM with ID *vm* in the application with ID *app*."""
         if isinstance(app, dict): app = app['id']
@@ -555,11 +582,23 @@ class RavelloClient(object):
         if isinstance(vm, dict): vm = vm['id']
         self.request('POST', '/applications/{0}/vms/{1}/stop'.format(app, vm))
 
+    def poweroff_vm(self, app, vm):
+        """Power off the VM with ID *vm* in the application with ID *app*."""
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        self.request('POST', '/applications/{0}/vms/{1}/poweroff'.format(app, vm))
+
     def restart_vm(self, app, vm):
         """Restart the VM with ID *vm* in the application with ID *app*."""
         if isinstance(app, dict): app = app['id']
         if isinstance(vm, dict): vm = vm['id']
         self.request('POST', '/applications/{0}/vms/{1}/restart'.format(app, vm))
+
+    def redeploy_vm(self, app, vm):
+        """Redeploy the VM with ID *vm* in the application with ID *app*."""
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        self.request('POST', '/applications/{0}/vms/{1}/redeploy'.format(app, vm))
 
     def get_vnc_url(self, app, vm):
         """Get the VNC URL for the VM with ID *vm* in the application with ID *app*."""
@@ -704,3 +743,110 @@ class RavelloClient(object):
     def generate_keypair(self):
         """Generate a new keypair and return it."""
         return self.request('POST', '/keypairs/generate')
+
+    def get_user(self, user):
+        """Return the user with ID *user*, or None if it does not exist."""
+        if isinstance(user, dict): user = user['id']
+        return self.request('GET', '/users/{0}'.format(user))
+
+    def get_users(self, filter=None):
+        """Return a list with all users.
+
+        The *filter* argument can be used to return only a subset of the
+        users. See the description of the *cond* argument to :meth:`wait_for`.
+        """
+        users = self.request('GET', '/users')
+        if filter is not None:
+            users = _match_filter(users, filter)
+        return users
+
+    def create_user(self, user):
+        """Invite a new user to organization.
+
+        The *user* parameter must be a dict describing the user to invite.
+
+        The new user is returned.
+        """
+        return self.request('POST', '/users', user)
+
+    def update_user(self, user, userId):
+        """Update an existing user.
+
+        The *user* parameter must be the updated user. The way to update a
+        user (or any other resource) is to first retrieve it, make the
+        updates client-side, and then use this method to make the update.
+        In this case, note however that you can only provide email, name,
+        roles, and surname (and email cannot be changed).
+        
+        The updated user is returned.
+        """
+        return self.request('PUT', '/users/{0}'.format(userId), user)
+
+    def delete_user(self, user):
+        """Delete a user with ID *user*."""
+        if isinstance(user, dict): user = user['id']
+        self.request('DELETE', '/users/{0}'.format(user))
+
+    def changepw_user(self, passwords, user):
+        """Change the password of a user with ID *user*.
+
+        The *passwords* parameter must be a dict describing the existing
+        and new passwords.
+        """
+        return self.request('PUT', '/users/{0}/changepw'.format(user), passwords)
+
+    def get_billing(self, filter=None):
+        """Return a list with all applications' charges incurred since
+        beginning of the month.
+
+        The *filter* argument can be used to return only a subset of the
+        applications. See the description of the *cond* argument to
+        :meth:`wait_for`.
+        """
+        billing = self.request('GET', '/billing')
+        if filter is not None:
+            billing = _match_filter(billing, filter)
+        return billing
+
+    def get_billing_for_month(self, year, month):
+        """Return a list with all applications' charges incurred during the
+        specified month and year.
+        """
+        return self.request('GET', '/billing?year={0}&month={1}'.format(year, month))
+
+    def get_events(self):
+        """Return a list of all possible event names."""
+        return self.request('GET', '/events')
+
+    def get_alerts(self):
+        """Return a list of all alerts that user is registered to.
+        
+        If user is an administrator, list contains all alerts that the
+        organization is registered too. 
+        """
+        return self.request('GET', '/userAlerts')
+
+    def create_alert(self, eventName, userId=None):
+        """Registers a user to an alert.
+        
+        User must be an administrator to specify a *userId*.
+        """
+        req = {'eventName': eventName}
+        if isinstance(userId, int): req['userId'] = userId
+        return self.request('POST', '/userAlerts', req)
+    
+    def delete_alert(self, alertId):
+        """Delete a specific userAlert.
+        
+        Specifiy an *alertId* to unregister a user from it.
+        """
+        return self.request('DELETE', '/userAlerts/{0}'.format(alertId))
+
+    def search_notifications(self, query):
+        """Return list of notifications regarding given criteria.
+        
+        The *query* parameter must be a dict describing the notifications to
+        match. Technically, all 4 of the following params are optional:
+        appId, notificationLevel, maxResults, dateRange
+        """
+        return self.request('POST', '/notifications/search', query)
