@@ -440,10 +440,15 @@ class RavelloClient(object):
 
     # Mapped API calls below
 
-    def get_application(self, app):
-        """Return the application with ID *app*, or None if it does not
-        exist."""
+    def get_application(self, app, aspect=None):
+        """Return the application with ID *app*, or None if it does not exist.
+
+        The *aspect* parameter can be used to return the application only with
+        the specified aspect (e.g., design, deployment, properties).
+        """
         if isinstance(app, dict): app = app['id']
+        if aspect is not None:
+            app = '{0};{1}'.format(app, aspect)
         return self.request('GET', '/applications/{0}'.format(app))
 
     def get_applications(self, filter=None):
@@ -549,12 +554,17 @@ class RavelloClient(object):
         url = '/blueprints/{0}/findPublishLocations'.format(bp)
         return self.request('POST', url, req)
 
-    def get_vm(self, app, vm):
+    def get_vm(self, app, vm, aspect=None):
         """Return the vm with ID *vm* in the appplication with ID *app*,
         or None if it does not exist.
+
+        The *aspect* parameter (design, deployment) can be used to return
+        the vm as designed or as deployed in the cloud.
         """
         if isinstance(app, dict): app = app['id']
         if isinstance(vm, dict): vm = vm['id']
+        if aspect is not None:
+            app = '{0};{1}'.format(app, aspect)
         return self.request('GET', '/applications/{0}/vms/{1}'.format(app, vm))
 
     def get_vms(self, app, filter=None):
