@@ -658,6 +658,15 @@ class RavelloClient(object):
             imgs = _match_filter(imgs, filter)
         return imgs
 
+    def create_image(self, image):
+        """Create a new image.
+
+        The *image* parameter must be a dict describing the image to create.
+
+        The new image is returned.
+        """
+        return self.request('POST', '/images', image)
+
     def update_image(self, img):
         """Update an existing image.
 
@@ -670,6 +679,13 @@ class RavelloClient(object):
         """Delete the image with ID *img*."""
         if isinstance(img, dict): img = img['id']
         self.request('DELETE', '/images/{0}'.format(img))
+
+    def search_images(self, query):
+        """Return an image that matches specific search criteria.
+
+        The *query* parameter must be a dict describing the image to match.
+        """
+        return self.request('POST', '/images/search', query)
 
     def get_diskimage(self, img):
         """Return the disk image with ID *img*, or None if it does not exist."""
