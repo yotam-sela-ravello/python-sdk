@@ -698,6 +698,15 @@ class RavelloClient(object):
             imgs = _match_filter(imgs, filter)
         return imgs
 
+    def create_diskimage(self, img):
+        """Create a new disk image.
+
+        The *img* parameter must be a dict describing the disk image to create.
+
+        The new disk image is returned.
+        """
+        return self.request('POST', '/diskImages', img)
+
     def update_diskimage(self, img):
         """Update an existing image.
 
