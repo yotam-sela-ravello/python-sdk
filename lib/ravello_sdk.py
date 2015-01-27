@@ -668,6 +668,15 @@ class RavelloClient(object):
             imgs = _match_filter(imgs, filter)
         return imgs
 
+    def create_image(self, image):
+        """Create a new image.
+
+        The *image* parameter must be a dict describing the image to create.
+
+        The new image is returned.
+        """
+        return self.request('POST', '/images', image)
+
     def update_image(self, img):
         """Update an existing image.
 
