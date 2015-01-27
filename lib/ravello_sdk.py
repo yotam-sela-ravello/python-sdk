@@ -786,7 +786,8 @@ class RavelloClient(object):
 
         The new user is returned.
         """
-        return self.request('POST', '/users', user)
+        org = self.get_organization()['id']
+        return self.request('POST', '/organizations/{0}/users'.format(org), user)
 
     def update_user(self, user, userId):
         """Update an existing user.
@@ -869,3 +870,27 @@ class RavelloClient(object):
         appId, notificationLevel, maxResults, dateRange
         """
         return self.request('POST', '/notifications/search', query)
+
+    def get_organization(self, org=None):
+        """Return the authenticated user organization's details.
+
+        The *org* parameter can be used to instead return details according to
+        organization ID.
+        """
+        if isinstance(org, dict): org = org['id']
+        if org is None:
+            org = ''
+        else:
+            org = 's/{0}'.format(org)
+        return self.request('GET', '/organization{0}'.format(org))
+
+    def update_organization(self, org):
+        """Update an organization's details.
+
+        The *org* parameter must be the updated organization. The way to update
+        an organization (or any other resource) is to first retrieve it, make
+        the updates client-side, and then use this method to make the update.
+
+        The updated organization is returned.
+        """
+        return self.request('PUT', '/organizations/{0}'.format(org['id']), org)
