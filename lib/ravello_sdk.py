@@ -26,10 +26,8 @@ import requests
 # Python 2.x / 3.x module name differences
 try:
     from urllib import parse as urlparse
-    from http.cookies import SimpleCookie
 except ImportError:
     import urlparse
-    from Cookie import SimpleCookie
 
 pyver = sys.version_info[:2]
 if pyver not in [(2, 6), (2, 7)] and pyver < (3, 3):
@@ -215,7 +213,6 @@ class RavelloClient(object):
         self.redirects = self.default_redirects
         self._logger = logging.getLogger('ravello')
         self._autologin = True
-        self._cookies = None
         self._user_info = None
         self._set_url(url or self.default_url)
         self._proxies = {}
@@ -231,7 +228,7 @@ class RavelloClient(object):
     @property
     def connected(self):
         """Whether or not the client is connected to the API."""
-        return self._cookies is not None
+        return self.have_credentials
 
     @property
     def have_credentials(self):
@@ -241,7 +238,7 @@ class RavelloClient(object):
     @property
     def logged_in(self):
         """Whether or not the client is logged in."""
-        return self._cookies is not None
+        return self.have_credentials
 
     @property
     def user_info(self):
@@ -290,8 +287,6 @@ class RavelloClient(object):
         auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
         headers = [('Authorization', 'Basic {0}'.format(auth))]
         response = self._request('POST', '/login', b'', headers)
-        self._cookies = SimpleCookie()
-        self._cookies.load(response.headers.get('Set-Cookie'))
         self._autologin = True
         self._user_info = response.entity
 
@@ -300,13 +295,9 @@ class RavelloClient(object):
         if not self.logged_in:
             return
         self.request('POST', '/logout')
-        self._cookies = None
 
     def close(self):
         """Close the connection to the API."""
-        if not self.connected:
-            return
-        self._cookies = None
 
     # The request() method is the main function. All other methods are a small
     # shim on top of this.
@@ -337,12 +328,9 @@ class RavelloClient(object):
         while retries < self.retries and redirects < self.redirects:
             if not self.logged_in and self.have_credentials and self._autologin:
                 self._login()
-            if self._cookies:
-                cookies = ['{0}={1}'.format(c.key, c.coded_value) for c in self._cookies.values()]
-                hdict['Cookie'] = '; '.join(cookies)
             try:
                 self._logger.debug('request: {0} {1}'.format(method, rpath))
-                response = http_methods[method](abpath, data=body, headers=hdict, proxies=self._proxies, timeout=self.timeout)
+                response = http_methods[method](abpath, data=body, headers=hdict, proxies=self._proxies, timeout=self.timeout, auth=(self._username, self._password))
                 status = response.status_code
                 ctype = response.headers.get('Content-Type')
                 if ctype == 'application/json':
