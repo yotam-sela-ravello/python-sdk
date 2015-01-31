@@ -428,10 +428,15 @@ class RavelloClient(object):
 
     # Mapped API calls below
 
-    def get_application(self, app):
-        """Return the application with ID *app*, or None if it does not
-        exist."""
+    def get_application(self, app, aspect=None):
+        """Return the application with ID *app*, or None if it does not exist.
+
+        The *aspect* parameter can be used to return the application only with
+        the specified aspect (e.g., design, deployment, properties).
+        """
         if isinstance(app, dict): app = app['id']
+        if aspect is not None:
+            app = '{0};{1}'.format(app, aspect)
         return self.request('GET', '/applications/{0}'.format(app))
 
     def get_applications(self, filter=None):
@@ -537,12 +542,17 @@ class RavelloClient(object):
         url = '/blueprints/{0}/findPublishLocations'.format(bp)
         return self.request('POST', url, req)
 
-    def get_vm(self, app, vm):
+    def get_vm(self, app, vm, aspect=None):
         """Return the vm with ID *vm* in the appplication with ID *app*,
         or None if it does not exist.
+
+        The *aspect* parameter (design, deployment) can be used to return
+        the vm as designed or as deployed in the cloud.
         """
         if isinstance(app, dict): app = app['id']
         if isinstance(vm, dict): vm = vm['id']
+        if aspect is not None:
+            app = '{0};{1}'.format(app, aspect)
         return self.request('GET', '/applications/{0}/vms/{1}'.format(app, vm))
 
     def get_vms(self, app, filter=None):
@@ -646,6 +656,15 @@ class RavelloClient(object):
             imgs = _match_filter(imgs, filter)
         return imgs
 
+    def create_image(self, image):
+        """Create a new image.
+
+        The *image* parameter must be a dict describing the image to create.
+
+        The new image is returned.
+        """
+        return self.request('POST', '/images', image)
+
     def update_image(self, img):
         """Update an existing image.
 
@@ -675,6 +694,15 @@ class RavelloClient(object):
         if filter is not None:
             imgs = _match_filter(imgs, filter)
         return imgs
+
+    def create_diskimage(self, img):
+        """Create a new disk image.
+
+        The *img* parameter must be a dict describing the disk image to create.
+
+        The new disk image is returned.
+        """
+        return self.request('POST', '/diskImages', img)
 
     def update_diskimage(self, img):
         """Update an existing image.
@@ -755,7 +783,8 @@ class RavelloClient(object):
 
         The new user is returned.
         """
-        return self.request('POST', '/users', user)
+        org = self.get_organization()['id']
+        return self.request('POST', '/organizations/{0}/users'.format(org), user)
 
     def update_user(self, user, userId):
         """Update an existing user.
@@ -838,3 +867,27 @@ class RavelloClient(object):
         appId, notificationLevel, maxResults, dateRange
         """
         return self.request('POST', '/notifications/search', query)
+
+    def get_organization(self, org=None):
+        """Return the authenticated user organization's details.
+
+        The *org* parameter can be used to instead return details according to
+        organization ID.
+        """
+        if isinstance(org, dict): org = org['id']
+        if org is None:
+            org = ''
+        else:
+            org = 's/{0}'.format(org)
+        return self.request('GET', '/organization{0}'.format(org))
+
+    def update_organization(self, org):
+        """Update an organization's details.
+
+        The *org* parameter must be the updated organization. The way to update
+        an organization (or any other resource) is to first retrieve it, make
+        the updates client-side, and then use this method to make the update.
+
+        The updated organization is returned.
+        """
+        return self.request('PUT', '/organizations/{0}'.format(org['id']), org)
