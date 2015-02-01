@@ -295,9 +295,12 @@ class RavelloClient(object):
         if not self.logged_in:
             return
         self.request('POST', '/logout')
+        self._username = None
+        self._password = None
 
     def close(self):
         """Close the connection to the API."""
+        self.logout
 
     # The request() method is the main function. All other methods are a small
     # shim on top of this.
