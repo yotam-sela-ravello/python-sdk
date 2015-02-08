@@ -261,6 +261,8 @@ class RavelloClient(object):
             self._set_url(url)
         if proxy_url is not None:
             self._proxies = {"http": proxy_url, "https": proxy_url}
+        if self._connection is not None:
+            self._connection.proxies = self._proxies
 
     def login(self, username=None, password=None):
         """Login to the API.
@@ -284,6 +286,8 @@ class RavelloClient(object):
             raise RuntimeError('no credentials set')
         self._logger.debug('performing a username/password login')
         self._connection = requests.Session()
+        self._connection.proxies = self._proxies
+        self._connection.stream = False
         self._autologin = False
         auth = '{0}:{1}'.format(self._username, self._password)
         auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
@@ -336,9 +340,8 @@ class RavelloClient(object):
                 self._login()
             try:
                 self._logger.debug('request: {0} {1}'.format(method, rpath))
-                req = requests.Request(method, abpath, data=body, headers=hdict)
-                response = self._connection.send(self._connection.prepare_request(req), proxies=self._proxies,
-                                                 timeout=self.timeout, stream=False)
+                req = requests.Request(method, abpath, data=body, headers=hdict, cookies=self._connection.cookies)
+                response = self._connection.send(req.prepare(), timeout=self.timeout)
                 status = response.status_code
                 ctype = response.headers.get('Content-Type')
                 if ctype == 'application/json':
