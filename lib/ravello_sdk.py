@@ -903,3 +903,74 @@ class RavelloClient(object):
         The updated organization is returned.
         """
         return self.request('PUT', '/organizations/{0}'.format(org['id']), org)
+
+    def get_permgroup(self, pg):
+        """Return the permission group with ID *pg*, or None if it does not exist."""
+        if isinstance(pg, dict): pg = pg['id']
+        return self.request('GET', '/permissionsGroups/{0}'.format(pg))
+
+    def get_permgroups(self, filter=None):
+        """Return a list with all permission groups.
+
+        The *filter* argument can be used to return only a subset of the
+        permission groups. See the description of the *cond* argument to
+        :meth:`wait_for`.
+        """
+        pgs = self.request('GET', '/permissionsGroups')
+        if filter is not None:
+            pgs = _match_filter(pgs, filter)
+        return pgs
+
+    def create_permgroup(self, pg):
+        """Create a new permission group.
+
+        The *pg* parameter must be a dict describing the permission group
+        to create.
+
+        The new permission group is returned.
+        """
+        return self.request('POST', '/permissionsGroups', pg)
+
+    def update_permgroup(self, pg):
+        """Update an existing permission group.
+
+        The *pg* parameter must be the updated permission group. The way to
+        update a permission group (or any other resource) is to first retrieve
+        it, make the updates client-side, and then use this method to make the
+        update.
+
+        The updated permission group is returned.
+        """
+        return self.request('PUT', '/permissionsGroups/{0}'.format(pg['id']), pg)
+
+    def delete_permgroup(self, pg):
+        """Delete a permission group with ID *pg*."""
+        if isinstance(pg, dict): pg = pg['id']
+        self.request('DELETE', '/permissionsGroups/{0}'.format(pg))
+
+    def get_users_in_permgroup(self, pg):
+        """List all of the users in a permission group."""
+        if isinstance(pg, dict): pg = pg['id']
+        return self.request('GET', '/permissionsGroups/{0}/users'.format(pg))
+
+    def add_user_to_permgroup(self, pg, user):
+        """Add a user to a permission group.
+
+        The *user* parameter must be a valid user id.
+        """
+        if isinstance(pg, dict): pg = pg['id']
+        req = {'userId': user}
+        return self.request('POST', '/permissionsGroups/{0}/users'.format(pg), req)
+
+    def del_user_from_permgroup(self, pg, user):
+        """Delete a user from a permission group.
+
+        The *user* parameter must be a valid user id.
+        """
+        if isinstance(pg, dict): pg = pg['id']
+        req = {'userId': user}
+        return self.request('DELETE', '/permissionsGroups/{0}/users'.format(pg), req)
+
+    def get_permgroup_descriptors(self):
+        """Return a list of resource permission descriptors."""
+        return self.request('GET', '/permissionsGroups/describe')
