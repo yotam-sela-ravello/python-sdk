@@ -968,8 +968,7 @@ class RavelloClient(object):
         The *user* parameter must be a valid user id.
         """
         if isinstance(pg, dict): pg = pg['id']
-        req = {'userId': user}
-        return self.request('DELETE', '/permissionsGroups/{0}/users'.format(pg), req)
+        return self.request('DELETE', '/permissionsGroups/{0}/users/{1}'.format(pg, user))
 
     def get_permgroup_descriptors(self):
         """Return a list of resource permission descriptors."""
