@@ -287,7 +287,7 @@ class RavelloClient(object):
         self._logger.debug('performing a username/password login')
         self._connection = requests.Session()
         self._connection.proxies = self._proxies
-        self._connection.stream = False
+        self._connection.stream = True
         self._autologin = False
         auth = '{0}:{1}'.format(self._username, self._password)
         auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
@@ -340,8 +340,8 @@ class RavelloClient(object):
                 self._login()
             try:
                 self._logger.debug('request: {0} {1}'.format(method, rpath))
-                req = requests.Request(method, abpath, data=body, headers=hdict, cookies=self._connection.cookies)
-                response = self._connection.send(req.prepare(), timeout=self.timeout)
+                req = requests.Request(method, abpath, data=body, headers=hdict, cookies=self._connection.cookies).prepare()
+                response = self._connection.send(req, timeout=self.timeout)
                 status = response.status_code
                 ctype = response.headers.get('Content-Type')
                 if ctype == 'application/json':
