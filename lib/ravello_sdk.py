@@ -288,6 +288,7 @@ class RavelloClient(object):
         self._connection = requests.Session()
         self._connection.proxies = self._proxies
         self._connection.stream = True
+        self._connection.redirects = self.redirects
         self._autologin = False
         auth = '{0}:{1}'.format(self._username, self._password)
         auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
@@ -330,12 +331,12 @@ class RavelloClient(object):
         rpath = self._url.path + path
         abpath = self.default_url + path
         hdict = {'Accept': 'application/json'}
-        for key, value in headers:
-            hdict[key] = value
         if body:
             hdict['Content-Type'] = 'application/json'
-        retries = redirects = 0
-        while retries < self.retries and redirects < self.redirects:
+        for key, value in headers:
+            hdict[key] = value
+        retries = 0
+        while retries < self.retries:
             if not self.logged_in and self.have_credentials and self._autologin:
                 self._login()
             try:
@@ -378,7 +379,6 @@ class RavelloClient(object):
                         if url.netloc != self._url.netloc:
                             raise RavelloError('will not chase referral to {0}'.format(loc))
                         rpath = url.path
-                    redirects += 1
                 elif status == 401:
                     if path == '/login':
                         self.close()
@@ -392,19 +392,17 @@ class RavelloClient(object):
                 else:
                     response.raise_for_status()
                 response.entity = entity
-            except (socket.timeout, ValueError) as e:
+            except (requests.exceptions.Timeout, ValueError) as e:
                 self._logger.debug('error: {0!s}'.format(e))
                 self.close()
                 if not _idempotent(method):
                     self._logger.debug('not retrying {0} request'.format(method))
-                    raise RavelloError('request timeout')
+                    raise e
                 retries += 1
                 continue
             break
         if retries == self.retries:
             raise RavelloError('maximum number of retries reached')
-        if redirects == self.redirects:
-            raise RavelloError('maximum number of redirects reached')
         return response
 
     def reload(self, obj):
