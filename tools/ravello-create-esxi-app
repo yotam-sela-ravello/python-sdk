@@ -115,8 +115,6 @@ def create_compute_vm(args, app, img, cnt):
         connection = {'device': nic, 'ipConfig': ipconfig}
         vm['networkConnections'].append(connection)
 
-    if ('suppliedServices' in img.keys()): vm['suppliedServices'] = img['suppliedServices']
-
     if 'vms' not in design:
         design['vms'] = []
     design['vms'].append(vm)
@@ -139,7 +137,6 @@ def main():
     	if (app_found == 0):
             print("Application {} not found".format(app_id))
             sys.exit(-1)
-	print('Found Application: {0}'.format(app['name']))
 	app = client.get_application(app_id)
 
         img_id = args['image']
@@ -152,11 +149,11 @@ def main():
             sys.exit(-1)
     	img = client.get_image(img_id)
 
-        for i in range(0, args['count'] - 1):
+        for i in range(0, args['count']):
     	    create_compute_vm(args, app, img, i)
     	client.update_application(app)
     	#client.publish_application_updates(app, True)
-    	print("Success")
+    	print("Added {} esxi vms".format(args['count']))
 
     except Exception as e:
        if debug:
