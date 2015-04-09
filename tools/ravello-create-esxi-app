@@ -1,0 +1,169 @@
+#!/usr/bin/env python
+
+"""Create esxi project template
+
+Usage: 
+    ravello-create-esxi-app [options] (--app <app_id>) (--image <image_id>) (--count <cnt>) [--start_ip <ip>] [--hostname <host>]
+    ravello-create-esxi-app [options] (--app <app_id>) (--image <image_id>) (--count <cnt>)
+
+ravello-create-esxi-app -h | --help
+
+{common_options}
+
+Arguments:
+    --app <app_id>
+		 exisiting application id
+    --count <count>
+		 number of esxi nodes
+    --image <image_id>
+		 image_id of esxi template VM in the library
+    --start_ip <ip>
+                 start ip address for esxi
+    --hostname <host>
+                 hostname prefix for esxi
+"""
+
+from __future__ import absolute_import, print_function
+
+import os
+import re
+import sys
+import json
+
+from docopt import docopt
+from collections import namedtuple
+
+from ravello_sdk import RavelloClient, RavelloError
+from ravello_cli import setup_logger, create_client
+from ravello_cli import common_options, parse_common_arguments
+from ravello_cli import (validate_int_arg, validate_size_arg,
+        validate_enum_arg, validate_network_arg, validate_service_arg,
+        validate_interval_arg, expand_multival_arg)
+from ravello_cli import get_diskimage, get_keypair, get_application
+from ravello_cli import new_name
+from ravello_cli import inet_aton, inet_ntoa, mac_aton, mac_ntoa
+
+debug = 0
+
+__doc__ = __doc__.format(common_options=common_options)
+
+def parse_arguments(args):
+    """Check the command line arguments (values only, no references)."""
+    values = parse_common_arguments(args)
+    values['count'] = count = validate_int_arg(args, '--count', 1, 100)
+    #values['autostart'] = not bool(args['--no-autostart'])
+    values['app'] = args['--app']
+    values['image'] = args['--image']
+    if (args['--start_ip'] != None):
+        values['start_ip'] = args['--start_ip']
+    if (args['--hostname'] != None):
+        values['hostname'] = args['--hostname']
+    return values
+
+
+def create_compute_vm(args, app, img, cnt):
+    design = app['design']
+
+    # General settings
+    vm = {'name': img['name']+str(cnt),
+          'description': img.get('description'),
+          'os': img['os'],
+          'baseVmId': 0,
+          'hostnames' : []}
+
+    if ('hostname' in args.keys()):
+        vm['hostnames'].append(args['hostname'] + str(cnt))
+    elif ('hostnames' in img.keys()):
+        vm['hostnames'].append(img['hostnames'][0] + str(cnt))
+    else:
+        vm['hostnames'].append('host' + str(cnt))
+
+    vm['numCpus'] = img['numCpus']
+    vm['memorySize'] = img['memorySize']
+    vm['platform'] = img['platform']
+    if ('biosUuid' in img.keys()): vm['biosUuid'] = img['biosUuid']
+    if ('biosUuid' in img.keys()): vm['baseVmId'] = img['baseVmId'] 
+    if ('cpuIds' in img.keys()): vm['cpuIds'] = img['cpuIds']
+    # Disk + optional cdrom
+    drives = vm['hardDrives'] = []
+    for hd in img['hardDrives']:
+        drive = {'index': hd['index'],
+             'type': hd['type'],
+             'name': hd['name'],
+             'boot': hd['boot'],
+             'controller': hd['controller'],
+             'baseDiskImageId': '',
+             'size': hd['size']}
+        if 'baseDiskImageId' in hd:
+            drive['baseDiskImageId'] = hd['baseDiskImageId']
+        drives.append(drive)
+
+    ip = ""
+    if ('start_ip' in args.keys()):
+        ip_str = args['start_ip'].split('.')
+        ip = ip_str[0]+"."+ip_str[1]+"."+ip_str[2]+"."+str(int(ip_str[3])+cnt)
+
+    # netwok.
+    vm['networkConnections'] = []
+    for nc in img['networkConnections']:
+        nic = nc['device']
+        new_nic = nic
+        if (('generatedMac' in nic.keys()) and nic['useAutomaticMac'] != 0): new_nic.pop("generatedMac", None) 
+        ipconfig = {'autoIpConfig': {}}
+        if ('start_ip' in args.keys()):
+            ipconfig['autoIpConfig']['reservedIp']=ip
+        connection = {'device': nic, 'ipConfig': ipconfig}
+        vm['networkConnections'].append(connection)
+
+    if ('suppliedServices' in img.keys()): vm['suppliedServices'] = img['suppliedServices']
+
+    if 'vms' not in design:
+        design['vms'] = []
+    design['vms'].append(vm)
+    return vm
+
+def main():
+    app_found = 0
+    img_found = 0
+
+    try:
+        args = docopt(__doc__)
+    	args = parse_arguments(args)
+	client = create_client(args)
+
+	app_id = args['app']
+    	for app in client.get_applications():
+       	    if (app['id'] == int(app_id)):
+                app_found = 1
+  	        break
+    	if (app_found == 0):
+            print("Application {} not found".format(app_id))
+            sys.exit(-1)
+	print('Found Application: {0}'.format(app['name']))
+	app = client.get_application(app_id)
+
+        img_id = args['image']
+    	for img in client.get_images():
+            if (img['id'] == int(img_id)):
+                img_found = 1
+                break
+    	if (img_found == 0):
+            print("Image {} not found".format(img_id))
+            sys.exit(-1)
+    	img = client.get_image(img_id)
+
+        for i in range(0, args['count'] - 1):
+    	    create_compute_vm(args, app, img, i)
+    	client.update_application(app)
+    	#client.publish_application_updates(app, True)
+    	print("Success")
+
+    except Exception as e:
+       if debug:
+           raise
+       sys.stdout.write('Error: {0!s}\n'.format(e))
+       sys.exit(1)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
