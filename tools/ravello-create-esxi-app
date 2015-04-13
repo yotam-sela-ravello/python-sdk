@@ -3,8 +3,8 @@
 """Create esxi project template
 
 Usage: 
-    ravello-create-esxi-app [options] (--app <app_id>) (--image <image_id>) (--count <cnt>) [--start_ip <ip>] [--hostname <host>]
-    ravello-create-esxi-app [options] (--app <app_id>) (--image <image_id>) (--count <cnt>)
+    ravello-create-esxi-app [options] (--app <app_id> | --app-name <app_name>) (--image <image_id> | --image-name <image_name>) (--count <cnt>) [--start_ip <ip>] [--hostname <host>]
+    ravello-create-esxi-app [options] (--app <app_id> | --app-name <app_name>) (--image <image_id> | --image-name <image_name>) (--count <cnt>)
 
 ravello-create-esxi-app -h | --help
 
@@ -13,10 +13,14 @@ ravello-create-esxi-app -h | --help
 Arguments:
     --app <app_id>
 		 exisiting application id
+    --app-name <app_name>
+		 application name, will create a new one if supplied name doesn't exist
     --count <count>
 		 number of esxi nodes
     --image <image_id>
 		 image_id of esxi template VM in the library
+    --image-name <image_name>
+		 image name of esxi template VM in the library
     --start_ip <ip>
                  start ip address for esxi
     --hostname <host>
@@ -52,8 +56,14 @@ def parse_arguments(args):
     values = parse_common_arguments(args)
     values['count'] = count = validate_int_arg(args, '--count', 1, 100)
     #values['autostart'] = not bool(args['--no-autostart'])
-    values['app'] = args['--app']
-    values['image'] = args['--image']
+    if (args['--app-name'] != None):
+        values['app-name'] = args['--app-name']
+    if (args['--app'] != None):
+        values['app'] = args['--app']
+    if (args['--image'] != None):
+        values['image'] = args['--image']
+    else:
+        values['image-name'] = args['--image-name']
     if (args['--start_ip'] != None):
         values['start_ip'] = args['--start_ip']
     if (args['--hostname'] != None):
@@ -70,6 +80,8 @@ def create_compute_vm(args, app, img, cnt):
           'os': img['os'],
           'baseVmId': 0,
           'hostnames' : []}
+    if ('hostname' in args.keys()):
+         vm['name'] = args['hostname'] + str(cnt)
 
     if ('hostname' in args.keys()):
         vm['hostnames'].append(args['hostname'] + str(cnt))
@@ -120,6 +132,15 @@ def create_compute_vm(args, app, img, cnt):
     design['vms'].append(vm)
     return vm
 
+def create_application(client, args):
+    """Create a new application
+
+    The application is returned as a dictionary.
+    """
+    app = {'name': args['app-name'], 'description': 'Created by r-c-n'}
+    app = client.create_application(app)
+    return app
+
 def main():
     app_found = 0
     img_found = 0
@@ -129,23 +150,47 @@ def main():
     	args = parse_arguments(args)
 	client = create_client(args)
 
-	app_id = args['app']
+        if ('app' in args.keys()):
+	    app_id = args['app']
+        else:
+            app_id = "-1"
+
     	for app in client.get_applications():
-       	    if (app['id'] == int(app_id)):
+       	    if ('app' in args.keys() and  app['id'] == int(app_id)):
                 app_found = 1
   	        break
+            if ('app-name' in args.keys() and  app['name'] == args['app-name']):
+                app_found = 1
+                app_id = app['id']
+                break
     	if (app_found == 0):
-            print("Application {} not found".format(app_id))
-            sys.exit(-1)
-	app = client.get_application(app_id)
+            if ('app-name' in args.keys()):
+                print("Creating new application: {}".format(args['app-name']))
+                app = create_application(client, args)
+            else:
+                print("Application {} not found".format(app_id))
+                sys.exit(-1)
+	else:
+            app = client.get_application(app_id)
+            print("Found existing application {}".format(app['name']))
 
-        img_id = args['image']
+        if ('image' in args.keys()):
+            img_id = args['image']
+        else:
+            img_id = "-1"
     	for img in client.get_images():
-            if (img['id'] == int(img_id)):
+            if ('image' in args.keys() and img['id'] == int(img_id)):
                 img_found = 1
                 break
+            if ('image-name' in args.keys() and img['name'] == args['image-name']):
+                img_found = 1
+                img_id = img['id']
+                break
     	if (img_found == 0):
-            print("Image {} not found".format(img_id))
+            if ('image' in args.keys()):
+                print("Image {} not found".format(img_id))
+            else:
+                print("Image {} not found".format(args['image-name']))
             sys.exit(-1)
     	img = client.get_image(img_id)
 
