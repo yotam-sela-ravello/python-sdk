@@ -249,6 +249,7 @@ class RavelloClient(object):
     def _set_url(self, url):
         if self.connected:
             raise RuntimeError('cannot change URL when connected')
+        self.default_url = url
         self._url = urlsplit2(url)
 
     def connect(self, url=None, proxy_url=None):
