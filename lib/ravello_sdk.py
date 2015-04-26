@@ -135,12 +135,15 @@ def _idempotent(method):
 
 def _match_filter(obj, flt):
     """Match the object *obj* with filter *flt*."""
+
+    if isinstance(obj, list):
+        return [ob for ob in obj if _match_filter(ob, flt)]
+
     if callable(flt):
         return flt(obj)
     elif not isinstance(flt, dict):
         raise TypeError('expecting a callable or a dict')
-    if isinstance(obj, list):
-        return [ob for ob in obj if _match_filter(ob, flt)]
+
     for fkey, fval in flt.items():
         obval = obj.get(fkey)
         if obval is None:
@@ -440,6 +443,30 @@ class RavelloClient(object):
 
     # Mapped API calls below
 
+    def get_application_by_name(self, app_name, aspect=None):
+      
+        criteria = dict()
+        criteria['type'] = 'COMPLEX'
+        criteria['operator'] = 'And'
+        criteria['criteria'] = [1]
+        
+        criterion = dict()
+        criterion['type'] = 'SIMPLE'
+        criterion['operator'] = 'Equals'
+        criterion['propertyName'] = 'name'
+        criterion['operand'] = app_name
+        criteria['criteria'][0] = criterion
+         
+        apps = self.request('POST', '/applications/filter',criteria)
+        if len(apps) == 0:
+            raise RavelloError('app "{0}" not found'.format(app_name))
+        if len(apps) > 1:
+            raise RavelloError('multiple apps for name "{0}" found'.format(app_name))
+        app = apps[0]
+        if aspect is not 'properties':
+            app = self.get_application(app,aspect)
+        return app
+    
     def get_application(self, app, aspect=None):
         """Return the application with ID *app*, or None if it does not exist.
 
@@ -453,7 +480,6 @@ class RavelloClient(object):
 
     def get_applications(self, filter=None):
         """Return a list with all applications.
-
         The *filter* argument can be used to return only a subset of the
         applications. See the description of the *cond* argument to
         :meth:`wait_for`.
