@@ -37,10 +37,10 @@ Examples
 
 Various usage examples exist for the SDK (credit goes to the relevant contributers):
 
- * *Ravshello* is an almost complete shell to manage Ravello using the Python SDK -  https://github.com/ryran/ravshello
- * The *ravello-create-nodes* utility supports various ways for creating applications from disk images - https://github.com/ravello/python-sdk/blob/master/tools/ravello-create-nodes
- * A cool example for implementing a highly available load balancer on top of Ravello using the Python SDK - https://gist.github.com/robertoandrade/29e60d41aee6342c16c7
- * A simple script for adding VMs to a published application - https://github.com/ravello/vmware-automation 
+* *Ravshello* is an almost complete shell to manage Ravello using the Python SDK -  https://github.com/ryran/ravshello
+* The *ravello-create-nodes* utility supports various ways for creating applications from disk images - https://github.com/ravello/python-sdk/blob/master/tools/ravello-create-nodes
+* A cool example for implementing a highly available load balancer on top of Ravello using the Python SDK - https://gist.github.com/robertoandrade/29e60d41aee6342c16c7
+* A simple script for adding VMs to a published application - https://github.com/ravello/vmware-automation 
 
 The following shows a small example of how to use the SDK::
 
