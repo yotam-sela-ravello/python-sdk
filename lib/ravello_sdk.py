@@ -26,10 +26,8 @@ import requests
 # Python 2.x / 3.x module name differences
 try:
     from urllib import parse as urlparse
-    from http.cookies import SimpleCookie
 except ImportError:
     import urlparse
-    from Cookie import SimpleCookie
 
 pyver = sys.version_info[:2]
 if pyver not in [(2, 6), (2, 7)] and pyver < (3, 3):
@@ -218,7 +216,7 @@ class RavelloClient(object):
         self.redirects = self.default_redirects
         self._logger = logging.getLogger('ravello')
         self._autologin = True
-        self._cookies = None
+        self._connection = None
         self._user_info = None
         self._set_url(url or self.default_url)
         self._proxies = {}
@@ -234,7 +232,7 @@ class RavelloClient(object):
     @property
     def connected(self):
         """Whether or not the client is connected to the API."""
-        return self._cookies is not None
+        return self._connection is not None
 
     @property
     def have_credentials(self):
@@ -244,7 +242,7 @@ class RavelloClient(object):
     @property
     def logged_in(self):
         """Whether or not the client is logged in."""
-        return self._cookies is not None
+        return self._connection is not None
 
     @property
     def user_info(self):
@@ -254,6 +252,7 @@ class RavelloClient(object):
     def _set_url(self, url):
         if self.connected:
             raise RuntimeError('cannot change URL when connected')
+        self.default_url = url
         self._url = urlsplit2(url)
 
     def connect(self, url=None, proxy_url=None):
@@ -266,6 +265,8 @@ class RavelloClient(object):
             self._set_url(url)
         if proxy_url is not None:
             self._proxies = {"http": proxy_url, "https": proxy_url}
+        if self._connection is not None:
+            self._connection.proxies = self._proxies
 
     def login(self, username=None, password=None):
         """Login to the API.
@@ -288,28 +289,30 @@ class RavelloClient(object):
         if not self.have_credentials:
             raise RuntimeError('no credentials set')
         self._logger.debug('performing a username/password login')
+        self._connection = requests.Session()
+        self._connection.proxies = self._proxies
+        self._connection.stream = True
+        self._connection.redirects = self.redirects
         self._autologin = False
         auth = '{0}:{1}'.format(self._username, self._password)
         auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
         headers = [('Authorization', 'Basic {0}'.format(auth))]
         response = self._request('POST', '/login', b'', headers)
-        self._cookies = SimpleCookie()
-        self._cookies.load(response.headers.get('Set-Cookie'))
         self._autologin = True
-        self._user_info = response.entity
+        self._user_info = response
 
     def logout(self):
         """Logout from the API. This invalidates the authentication cookie."""
         if not self.logged_in:
             return
         self.request('POST', '/logout')
-        self._cookies = None
+        self._connection = None
 
     def close(self):
         """Close the connection to the API."""
         if not self.connected:
             return
-        self._cookies = None
+        self._connection = None
 
     # The request() method is the main function. All other methods are a small
     # shim on top of this.
@@ -332,24 +335,24 @@ class RavelloClient(object):
         rpath = self._url.path + path
         abpath = self.default_url + path
         hdict = {'Accept': 'application/json'}
-        for key, value in headers:
-            hdict[key] = value
         if body:
             hdict['Content-Type'] = 'application/json'
-        retries = redirects = 0
-        while retries < self.retries and redirects < self.redirects:
+        for key, value in headers:
+            hdict[key] = value
+        retries = 0
+        while retries < self.retries:
             if not self.logged_in and self.have_credentials and self._autologin:
                 self._login()
-            if self._cookies:
-                cookies = ['{0}={1}'.format(c.key, c.coded_value) for c in self._cookies.values()]
-                hdict['Cookie'] = '; '.join(cookies)
             try:
                 self._logger.debug('request: {0} {1}'.format(method, rpath))
-                response = http_methods[method](abpath, data=body, headers=hdict, proxies=self._proxies, timeout=self.timeout)
+                req = requests.Request(method, abpath, data=body, headers=hdict, cookies=self._connection.cookies).prepare()
+                response = self._connection.send(req, timeout=self.timeout)
                 status = response.status_code
                 ctype = response.headers.get('Content-Type')
                 if ctype == 'application/json':
                     entity = response.json()
+                elif ctype == 'text/plain':
+                    entity = response.text
                 else:
                     entity = None
                 self._logger.debug('response: {0} ({1})'.format(status, ctype))
@@ -380,27 +383,30 @@ class RavelloClient(object):
                         if url.netloc != self._url.netloc:
                             raise RavelloError('will not chase referral to {0}'.format(loc))
                         rpath = url.path
-                    redirects += 1
+                elif status == 401:
+                    if path == '/login':
+                        self.close()
+                        response.raise_for_status()
+                    elif self._autologin:
+                        self._login()
+                        retries += 1
+                        continue
                 elif status == 404:
                     entity = None
                 else:
-                    code = response.headers.get('ERROR-CODE', 'unknown')
-                    msg = response.headers.get('ERROR-MESSAGE', 'unknown')
-                    raise RavelloError('got status {0} ({1}/{2})' .format(status, code, msg))
+                    response.raise_for_status()
                 response.entity = entity
-            except (socket.timeout, ValueError) as e:
+            except (requests.exceptions.Timeout, ValueError) as e:
                 self._logger.debug('error: {0!s}'.format(e))
                 self.close()
                 if not _idempotent(method):
                     self._logger.debug('not retrying {0} request'.format(method))
-                    raise RavelloError('request timeout')
+                    raise e
                 retries += 1
                 continue
             break
         if retries == self.retries:
             raise RavelloError('maximum number of retries reached')
-        if redirects == self.redirects:
-            raise RavelloError('maximum number of redirects reached')
         return response
 
     def reload(self, obj):
@@ -832,7 +838,7 @@ class RavelloClient(object):
         updates client-side, and then use this method to make the update.
         In this case, note however that you can only provide email, name,
         roles, and surname (and email cannot be changed).
-        
+
         The updated user is returned.
         """
         return self.request('PUT', '/users/{0}'.format(userId), user)
@@ -875,31 +881,31 @@ class RavelloClient(object):
 
     def get_alerts(self):
         """Return a list of all alerts that user is registered to.
-        
+
         If user is an administrator, list contains all alerts that the
-        organization is registered too. 
+        organization is registered too.
         """
         return self.request('GET', '/userAlerts')
 
     def create_alert(self, eventName, userId=None):
         """Registers a user to an alert.
-        
+
         User must be an administrator to specify a *userId*.
         """
         req = {'eventName': eventName}
         if isinstance(userId, int): req['userId'] = userId
         return self.request('POST', '/userAlerts', req)
-    
+
     def delete_alert(self, alertId):
         """Delete a specific userAlert.
-        
+
         Specifiy an *alertId* to unregister a user from it.
         """
         return self.request('DELETE', '/userAlerts/{0}'.format(alertId))
 
     def search_notifications(self, query):
         """Return list of notifications regarding given criteria.
-        
+
         The *query* parameter must be a dict describing the notifications to
         match. Technically, all 4 of the following params are optional:
         appId, notificationLevel, maxResults, dateRange
