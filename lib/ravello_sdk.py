@@ -1005,3 +1005,19 @@ class RavelloClient(object):
     def get_permgroup_descriptors(self):
         """Return a list of resource permission descriptors."""
         return self.request('GET', '/permissionsGroups/describe')
+
+    def add_elastic_ip(self, location):
+        """Creates elastic Ip. Returns the ip"""
+        return self.request('POST', '/elasticIps/{0}/'.format(location))
+
+    def delete_elastic_ip(self, ip):
+        """
+        :param ip: The ip to delete. In string format.
+        """
+        return self.request('DELETE', '/elasticIps/{0}/'.format(ip))
+
+    def get_elastic_ip_locations(self):
+        """
+        :return: all the possible locations for elastic ip
+        """
+        return self.request('GET', '/elasticIps/locations/')
