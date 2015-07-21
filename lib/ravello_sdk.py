@@ -1006,7 +1006,7 @@ class RavelloClient(object):
         """Return a list of resource permission descriptors."""
         return self.request('GET', '/permissionsGroups/describe')
 
-    def add_elastic_ip(self, location):
+    def create_elastic_ip(self, location):
         """Creates elastic Ip. Returns the ip"""
         return self.request('POST', '/elasticIps/{0}/'.format(location))
 
@@ -1015,6 +1015,12 @@ class RavelloClient(object):
         :param ip: The ip to delete. In string format.
         """
         return self.request('DELETE', '/elasticIps/{0}/'.format(ip))
+
+    def get_elastic_ips(self):
+        """
+        :return: all the elastic ips
+        """
+        return self.request('GET', '/elasticIps')
 
     def get_elastic_ip_locations(self):
         """
