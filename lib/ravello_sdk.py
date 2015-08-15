@@ -648,6 +648,12 @@ class RavelloClient(object):
         if isinstance(vm, dict): vm = vm['id']
         self.request('POST', '/applications/{0}/vms/{1}/repair'.format(app, vm))
 
+    def reset_disks_vm(self, app, vm):
+        """Resets each disk of the VM with ID *vm* in the application with ID *app*."""
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        self.request('POST', '/applications/{0}/vms/{1}/resetDisks'.format(app, vm))
+
     def get_vnc_url(self, app, vm):
         """Get the VNC URL for the VM with ID *vm* in the application with ID *app*."""
         if isinstance(app, dict): app = app['id']
