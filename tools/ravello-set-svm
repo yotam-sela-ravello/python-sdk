@@ -39,13 +39,6 @@ from docopt import docopt
 from getpass import getpass
 from ravello_sdk import RavelloClient
 
-svm_cpuids = [
-    { "value": "0000000768747541444d416369746e65", "index": "0" },
-    { "value": "000006fb00000800c0802000078bfbfd", "index": "1" },
-    { "value": "8000000a000000000000000000000000", "index": "80000000" },
-    { "value": "00000000000000000000001520100800", "index": "80000001" },
-    { "value": "00000001000000400000000000000089", "index": "8000000a" }, ]
-
 
 def parse_args():
     """Parse and validate arguments."""
@@ -126,13 +119,13 @@ def main():
 
         if args['--image']:
             image = get_image(client, args['<image>'], args['--numeric'])
-            image['cpuIds'] = svm_cpuids
+            image['allowNested'] = True
             client.update_image(image)
 
         else:
             app = get_application(client, args['<application>'], args['--numeric'])
             vm = get_design_vm(app, args['<vm>'], args['--numeric'])
-            vm['cpuIds'] = svm_cpuids
+            vm['allowNested'] = True
             client.update_application(app)
 
         print('Nested virtualization enabled.')
