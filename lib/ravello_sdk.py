@@ -1051,7 +1051,7 @@ class RavelloClient(object):
     def update_application_task(self, application, task, task_details):
         """Update an already scheduled application task.
         
-        The *task_id* parameter is the ID of the task to update
+        The *task* parameter is the ID of the task to update
         The *task_details* parameter is a dict describing the task to schedule
         """
         if isinstance(application, dict): application = application['id']
@@ -1080,3 +1080,37 @@ class RavelloClient(object):
         """Delete all scheduled tasks of an application"""
         if isinstance(application, dict): application = application['id']
         return self.request('DELETE', '/applications/{0}/tasks'.format(application))
+
+    def get_ephemeral_access_tokens(self):
+        """Return a list of all ephemeral access tokens"""
+        return self.request('GET', '/ephemeralAccessTokens')
+
+    def get_ephemeral_access_token(self, token):
+        """Return a specific ephemeral access token"""
+        if isinstance(token, dict): token = token['id']
+        return self.request('GET', '/ephemeralAccessTokens/{0}'.format(token))
+
+    def create_ephemeral_access_token(self, token_details):
+        """Creates a new ephemeral access token.
+        The *token_details* parameter is a dict describing the ephemeral access token to create.
+        This parameter has a mandatory field named *name*, as well as optional fields:
+        - expirationTime - in millis since 1.1.1970 UTC
+        - description - text
+        - permissions - a list of permissions associated with the eph access token
+        """
+        return self.request('POST', '/ephemeralAccessTokens', token_details)
+
+    def update_ephemeral_access_token(self, token, token_details):
+        """Updates an existing ephemeral access token.
+        The *token* parameter is the ID of the token to update
+        The *token_details* parameter is a dict describing the updated token details
+        """
+        if isinstance(token, dict): token = token['id']
+        return self.request('PUT', '/ephemeralAccessTokens/{0}'.format(token), token_details)
+
+    def delete_ephemeral_access_token(self, token):
+        """Deletes an existing ephemeral access token.
+        The *token* parameter is the ID of the token to delete
+        """
+        if isinstance(token, dict): token = token['id']
+        return self.request('DELETE', '/ephemeralAccessTokens/{0}'.format(token))
