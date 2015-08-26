@@ -1039,3 +1039,44 @@ class RavelloClient(object):
         :return: all the possible locations for elastic ip
         """
         return self.request('GET', '/elasticIps/locations/')
+
+    def create_application_task(self, application, task_details):
+        """Create and Schedule a new application task.
+        
+        The *task_details* parameter is a dict describing the task to schedule
+        """
+        if isinstance(application, dict): application = application['id']
+        return self.request('POST', '/applications/{0}/tasks'.format(application), task_details)
+
+    def update_application_task(self, application, task, task_details):
+        """Update an already scheduled application task.
+        
+        The *task_id* parameter is the ID of the task to update
+        The *task_details* parameter is a dict describing the task to schedule
+        """
+        if isinstance(application, dict): application = application['id']
+        if isinstance(task, dict): task = task['id']
+        
+        return self.request('PUT', '/applications/{0}/tasks/{1}'.format(application ,task), task_details)
+
+    def get_application_tasks(self, application):
+        """Return a list of the application's scheduled tasks"""
+        if isinstance(application, dict): application = application['id']
+        return self.request('GET', '/applications/{0}/tasks'.format(application))
+
+    def get_application_task(self, application, task):
+        """Return a specific application's scheduled task"""
+        if isinstance(application, dict): application = application['id']
+        if isinstance(task, dict): task = task['id']
+        return self.request('GET', '/applications/{0}/tasks/{1}'.format(application, task))
+
+    def delete_application_task(self, application, task):
+        """Delete a specific application's scheduled task"""
+        if isinstance(application, dict): application = application['id']
+        if isinstance(task, dict): task = task['id']
+        return self.request('DELETE', '/applications/{0}/tasks/{1}'.format(application, task))
+
+    def delete_application_tasks(self, application):
+        """Delete all scheduled tasks of an application"""
+        if isinstance(application, dict): application = application['id']
+        return self.request('DELETE', '/applications/{0}/tasks'.format(application))
