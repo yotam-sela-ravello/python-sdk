@@ -201,13 +201,15 @@ class RavelloClient(object):
     default_retries = 3
     default_redirects = 3
 
-    def __init__(self, username=None, password=None, url=None, timeout=None, retries=None, proxy_url=None):
+    def __init__(self, username=None, password=None, url=None, timeout=None, retries=None, proxy_url=None, eph_token=None):
         """Create a new client.
 
         The *username* and *password* parameters specify the credentials to use
         when connecting to the API. The *timeout* and *retries* parameters
         specify the default network system call time timeout and maximum number
         of retries respectively.
+        *proxy_url* should be used when an HTTP proxy is in place.
+        *eph_token* is ephemeral access token to be used instead of username/password.
         """
         self._username = username
         self._password = password
@@ -222,6 +224,7 @@ class RavelloClient(object):
         self._proxies = {}
         if proxy_url is not None:
             self._proxies = {"http": proxy_url, "https": proxy_url}
+        self._eph_token = eph_token
 
     @property
     def url(self):
@@ -240,6 +243,11 @@ class RavelloClient(object):
         return self._username is not None and self._password is not None
 
     @property
+    def have_eph_access_token(self):
+        """whether or not ephemeral access token is available."""
+        return self._eph_token is not None
+
+    @property
     def logged_in(self):
         """Whether or not the client is logged in."""
         return self._connection is not None
@@ -255,7 +263,7 @@ class RavelloClient(object):
         self.default_url = url
         self._url = urlsplit2(url)
 
-    def connect(self, url=None, proxy_url=None):
+    def connect(self, url=None, proxy_url=None, eph_token=None):
         """Connect to the API.
 
         It is not mandatory to call this method. If this method is not called,
@@ -265,6 +273,8 @@ class RavelloClient(object):
             self._set_url(url)
         if proxy_url is not None:
             self._proxies = {"http": proxy_url, "https": proxy_url}
+        if eph_token is not None:
+            self._eph_token = eph_token
         if self._connection is not None:
             self._connection.proxies = self._proxies
 
@@ -286,26 +296,31 @@ class RavelloClient(object):
         self._login()
 
     def _login(self):
-        if not self.have_credentials:
-            raise RuntimeError('no credentials set')
-        self._logger.debug('performing a username/password login')
+        if not self.have_credentials and not self.have_eph_access_token:
+            raise RuntimeError('no credentials or ephemeral access token set')
         self._connection = requests.Session()
         self._connection.proxies = self._proxies
         self._connection.stream = True
         self._connection.redirects = self.redirects
         self._autologin = False
-        auth = '{0}:{1}'.format(self._username, self._password)
-        auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
-        headers = [('Authorization', 'Basic {0}'.format(auth))]
-        response = self._request('POST', '/login', b'', headers)
+        if self.have_credentials:
+            self._logger.debug('performing a username/password login')
+            auth = '{0}:{1}'.format(self._username, self._password)
+            auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
+            headers = [('Authorization', 'Basic {0}'.format(auth))]
+            response = self._request('POST', '/login', b'', headers)
+            self._user_info = response
+        else:
+            self._logger.debug('using ephemeral access based session')
         self._autologin = True
-        self._user_info = response
 
     def logout(self):
-        """Logout from the API. This invalidates the authentication cookie."""
-        if not self.logged_in:
-            return
-        self.request('POST', '/logout')
+        """Logout from the API.
+        This invalidates the authentication cookie in case of username/password authentication,
+        and in any case will force close the connection.
+        """
+        if self.logged_in:
+            self.request('POST', '/logout')
         self._connection = None
 
     def close(self):
@@ -335,13 +350,15 @@ class RavelloClient(object):
         rpath = self._url.path + path
         abpath = self.default_url + path
         hdict = {'Accept': 'application/json'}
+        if self._eph_token is not None:
+            hdict['X-Ephemeral-Token-Authorization'] = self._eph_token
         if body:
             hdict['Content-Type'] = 'application/json'
         for key, value in headers:
             hdict[key] = value
         retries = 0
         while retries < self.retries:
-            if not self.logged_in and self.have_credentials and self._autologin:
+            if not self.logged_in and (self.have_credentials or self.have_eph_access_token) and self._autologin:
                 self._login()
             try:
                 self._logger.debug('request: {0} {1}'.format(method, rpath))
@@ -1039,3 +1056,78 @@ class RavelloClient(object):
         :return: all the possible locations for elastic ip
         """
         return self.request('GET', '/elasticIps/locations/')
+
+    def create_application_task(self, application, task_details):
+        """Create and Schedule a new application task.
+        
+        The *task_details* parameter is a dict describing the task to schedule
+        """
+        if isinstance(application, dict): application = application['id']
+        return self.request('POST', '/applications/{0}/tasks'.format(application), task_details)
+
+    def update_application_task(self, application, task, task_details):
+        """Update an already scheduled application task.
+        
+        The *task* parameter is the ID of the task to update
+        The *task_details* parameter is a dict describing the task to schedule
+        """
+        if isinstance(application, dict): application = application['id']
+        if isinstance(task, dict): task = task['id']
+        
+        return self.request('PUT', '/applications/{0}/tasks/{1}'.format(application ,task), task_details)
+
+    def get_application_tasks(self, application):
+        """Return a list of the application's scheduled tasks"""
+        if isinstance(application, dict): application = application['id']
+        return self.request('GET', '/applications/{0}/tasks'.format(application))
+
+    def get_application_task(self, application, task):
+        """Return a specific application's scheduled task"""
+        if isinstance(application, dict): application = application['id']
+        if isinstance(task, dict): task = task['id']
+        return self.request('GET', '/applications/{0}/tasks/{1}'.format(application, task))
+
+    def delete_application_task(self, application, task):
+        """Delete a specific application's scheduled task"""
+        if isinstance(application, dict): application = application['id']
+        if isinstance(task, dict): task = task['id']
+        return self.request('DELETE', '/applications/{0}/tasks/{1}'.format(application, task))
+
+    def delete_application_tasks(self, application):
+        """Delete all scheduled tasks of an application"""
+        if isinstance(application, dict): application = application['id']
+        return self.request('DELETE', '/applications/{0}/tasks'.format(application))
+
+    def get_ephemeral_access_tokens(self):
+        """Return a list of all ephemeral access tokens"""
+        return self.request('GET', '/ephemeralAccessTokens')
+
+    def get_ephemeral_access_token(self, token):
+        """Return a specific ephemeral access token"""
+        if isinstance(token, dict): token = token['id']
+        return self.request('GET', '/ephemeralAccessTokens/{0}'.format(token))
+
+    def create_ephemeral_access_token(self, token_details):
+        """Creates a new ephemeral access token.
+        The *token_details* parameter is a dict describing the ephemeral access token to create.
+        This parameter has a mandatory field named *name*, as well as optional fields:
+        - expirationTime - in millis since 1.1.1970 UTC
+        - description - text
+        - permissions - a list of permissions associated with the eph access token
+        """
+        return self.request('POST', '/ephemeralAccessTokens', token_details)
+
+    def update_ephemeral_access_token(self, token, token_details):
+        """Updates an existing ephemeral access token.
+        The *token* parameter is the ID of the token to update
+        The *token_details* parameter is a dict describing the updated token details
+        """
+        if isinstance(token, dict): token = token['id']
+        return self.request('PUT', '/ephemeralAccessTokens/{0}'.format(token), token_details)
+
+    def delete_ephemeral_access_token(self, token):
+        """Deletes an existing ephemeral access token.
+        The *token* parameter is the ID of the token to delete
+        """
+        if isinstance(token, dict): token = token['id']
+        return self.request('DELETE', '/ephemeralAccessTokens/{0}'.format(token))
