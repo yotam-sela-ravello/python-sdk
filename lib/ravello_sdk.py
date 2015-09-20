@@ -680,6 +680,65 @@ class RavelloClient(object):
                            headers=headers)
         return url.decode('iso-8859-1')
 
+    def get_detailed_charges_for_application(self, app, deployment_options, mode = 'design'):
+        """Get the detailed hourly charges for an application.
+        *app* is the application to get the charges for
+        *deployment_options* is a dict with the various deployment options (optimizationLevel, cloud and region)
+        when querying for a design pricing. See the REST API docs for details on possible values.
+        *mode* optional parameter, either 'design' or 'deployment'
+        """
+        if isinstance(app, dict): app = app['id']
+        return self.request('POST', '/applications/{0}/calcPrice;{1}'.format(app, mode), deployment_options)
+
+    def get_vm_fqdn(self, app, vm):
+        """Get the FQDN for a deployed VM
+        *app* is the applicaiton/application-id of the VM
+        *vm* is the VM/VM-id we're querying for
+        """
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        return self.request('GET', '/applications/{0}/vms/{1}/fqdn;deployment'.format(app,vm))
+
+    def get_vm_state(self, app, vm):
+        """Get the state of a deployed VM (e.g. STARTED / STOPPED / ERROR / ....)
+        *app* is the applicaiton/application-id of the VM
+        *vm* is the VM/VM-id we're querying for
+        """
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        return self.request('GET', '/applications/{0}/vms/{1}/state;deployment'.format(app,vm))
+
+    def get_vm_public_ips(self, app, vm):
+        """Get the list of a VM's public IPs
+        *app* is the applicaiton/application-id of the VM
+        *vm* is the VM/VM-id we're querying for
+        """
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        return self.request('GET', '/applications/{0}/vms/{1}/publicIps;deployment'.format(app,vm))
+
+    def is_application_published(self, app):
+        """Is the application *app* published or draft?"""
+        if isinstance(app, dict): app = app['id']
+        return self.request('GET', '/applications/{0}/isPublished'.format(app))
+
+    def add_library_vm_to_application(self, app, library_vm_id):
+        """Add a VM from the library to an existing application design (note that you will still need to publish the update)
+        *app* the application (object or ID) to add the library VM to
+        *library_vm_id* the ID of the Library VM to add to the application
+        """
+        if isinstance(app, dict): app = app['id']
+        return self.request('POST', '/applications/{0}/vms'.format(app), {'baseVmId':library_vm_id})
+
+    def delete_vm_from_application(self, app, vm):
+        """Deletes a single VM from an existing application's design (note that you will still need to publish the update)
+        *app* the application (object or ID) to delete the library VM from
+        *vm* the VM to delete from the application
+        """
+        if isinstance(app, dict): app = app['id']
+        if isinstance(vm, dict): vm = vm['id']
+        return self.request('DELETE', '/applications/{0}/vms/{1}'.format(app, vm))
+
     def get_blueprint(self, bp):
         """Return the blueprint with ID *bp*, or None if it does not exist."""
         if isinstance(bp, dict): bp = bp['id']
@@ -1131,3 +1190,15 @@ class RavelloClient(object):
         """
         if isinstance(token, dict): token = token['id']
         return self.request('DELETE', '/ephemeralAccessTokens/{0}'.format(token))
+
+    def get_community(self, community):
+        """Retrieves an existing community.
+        The *community* parameter is the ID of the community to retrieve
+        """
+        if isinstance(community, dict): community = community['id']
+        return self.request('GET', '/communities/{0}'.format(community))
+
+    def get_communities(self):
+        """Retrieves all communities."""
+        return self.request('GET', '/communities')
+
