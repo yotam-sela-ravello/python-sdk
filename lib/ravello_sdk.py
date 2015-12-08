@@ -680,14 +680,17 @@ class RavelloClient(object):
                            headers=headers)
         return url.decode('iso-8859-1')
 
-    def get_detailed_charges_for_application(self, app, deployment_options, mode = 'design'):
+    def get_detailed_charges_for_application(self, app, mode = 'deployment', deployment_options = {}):
         """Get the detailed hourly charges for an application.
         *app* is the application to get the charges for
-        *deployment_options* is a dict with the various deployment options (optimizationLevel, cloud and region)
-        when querying for a design pricing. See the REST API docs for details on possible values.
-        *mode* optional parameter, either 'design' or 'deployment'
+        *mode* optional parameter, either 'design' or 'deployment' (default value)
+        *deployment_options* optional parameter, should be non empty if and only if *mode* is being used, is a dict 
+        with the various deployment options (optimizationLevel, cloud and region) when querying for a design pricing. 
+        See the REST API docs for details on possible values.
         """
         if isinstance(app, dict): app = app['id']
+        if mode =='design' and deployment_options == {}:
+            raise RavelloError("Cannot query for detailed application charges with mode=design and no deployment_options")
         return self.request('POST', '/applications/{0}/calcPrice;{1}'.format(app, mode), deployment_options)
 
     def get_vm_fqdn(self, app, vm):
