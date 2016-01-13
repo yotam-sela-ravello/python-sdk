@@ -538,7 +538,7 @@ class RavelloClient(object):
         if isinstance(app, dict): app = app['id']
         self.request('DELETE', '/applications/{0}'.format(app))
 
-    def publish_application(self, app, req=None):
+    def publish_application(self, app, req={"optimizationLevel":"COST_OPTIMIZED"}):
         """Publish the application with ID *app*.
 
         The *req* parameter, if provided, must be a dict with publish
