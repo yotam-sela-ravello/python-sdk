@@ -355,8 +355,7 @@ class RavelloClient(object):
         if body:
             hdict['Content-Type'] = 'application/json'
         if isinstance(headers, dict):
-            for key, value in headers.items():
-                hdict[key] = value
+            hdict.update(headers)
         elif isinstance(headers, list):
             for key, value in headers:
                 hdict[key] = value
