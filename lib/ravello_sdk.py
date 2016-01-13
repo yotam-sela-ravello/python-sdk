@@ -354,8 +354,12 @@ class RavelloClient(object):
             hdict['X-Ephemeral-Token-Authorization'] = self._eph_token
         if body:
             hdict['Content-Type'] = 'application/json'
-        for key, value in headers:
-            hdict[key] = value
+        if isinstance(headers, dict):
+            for key, value in headers.items():
+                hdict[key] = value
+        elif isinstance(headers, list):
+            for key, value in headers:
+                hdict[key] = value
         retries = 0
         while retries < self.retries:
             if not self.logged_in and (self.have_credentials or self.have_eph_access_token) and self._autologin:
