@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+import ravello_sdk
+import sys
+import os
+import base64
+import getpass
+import datetime
+from argparse import ArgumentParser
+from ravello_sdk import *
+
+def get_credentials():
+        with open(os.path.expanduser("~/.ravello_login"),"r") as pf:
+                username = pf.readline().strip()
+                encrypted_password = pf.readline().strip()
+        password = base64.b64decode(encrypted_password).decode()
+        return username,password
+
+def mkparser():
+        parser = ArgumentParser()
+        parser.add_argument("-u", dest="username",default=None,help='Ravello user account name')
+        return parser
+
+def get_user_credentials(username):
+
+        password = None
+
+        if username:
+                password = getpass.getpass('Enter a Password: ')
+        else:
+                #read user credentials from .ravello_login file in user HOMEDIR
+                username,password = get_credentials()
+
+        if not username or not password:
+                print('Error: User credentials are not set')
+                return None,None
+
+        return username,password
+
+def connect(username, password):
+        client = RavelloClient()
+        try:
+                client.login(username, password)
+        except Exception as e:
+                sys.stderr.write('Error: {!s}\n'.format(e))
+                print('Error: Invalid user credentials, username {0}'.format(username))
+                return None
+        return client
+
+def print_bps(bps):
+	for bp in bps:
+		creation_time = datetime.datetime.fromtimestamp(bp['creationTime']/1000).strftime('%Y-%m-%d %H:%M')
+		description = bp.get('description')
+		if not description: 	
+			description = ''
+		print('Blueprint name: {0:<50} ID: {1:<10} Created: {2:<20} Owner: {3:<25} Description: {4:>30}'.format(bp['name'],bp['id'],creation_time,bp['ownerDetails']['name'],description))
+		
+def main():
+	parser = mkparser()
+	args = parser.parse_args()
+
+        #Set user credentials
+	username, password  = get_user_credentials(args.username)
+	if not username or not password:
+		exit(1)
+
+	#Connect to Ravello
+	client = connect(username, password)
+	if not client:
+		exit (1)
+
+	bps = client.get_blueprints()
+	if bps:
+		print_bps(bps)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        sys.stderr.write('Error: {!s}\n'.format(e))
