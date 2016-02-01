@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+# A Ravello SDK example for stopping an application
+#
+# Copyright 2011-2016 Ravello Systems, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License.  You may obtain a copy
+# of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import ravello_sdk
+import sys
+import os
+import base64
+import getpass
+import logging
+import logging.handlers
+from argparse import ArgumentParser
+from ravello_sdk import *
+
+log = logging.getLogger('main')
+
+def get_credentials():
+	with open(os.path.expanduser("~/.ravello_login"),"r") as pf:
+		username = pf.readline().strip()
+		encrypted_password = pf.readline().strip()
+	password = base64.b64decode(encrypted_password).decode()
+	return username,password
+ 
+def get_user_credentials(username):
+
+        password = None
+
+        if username:
+                password = getpass.getpass('Enter a Password: ')
+        else:
+                #read user credentials from .ravello_login file in user HOMEDIR
+                username,password = get_credentials()
+
+        if not username or not password:
+                log.error('User credentials are not set')
+                print('Error: User credentials are not set')
+                return None,None
+
+        return username,password
+
+def mkparser():
+	parser = ArgumentParser()
+	parser.add_argument("-i", dest="id",default=0,type=int,help='application ID')
+	parser.add_argument("-l", dest="log_file", default='ravello.log',help='logfile name')
+	parser.add_argument("-u", dest="username",default=None,help='Ravello user account name')
+	parser.add_argument("name",nargs='?',default=None,help='application name')
+	return parser
+
+def validate_param(args):
+	if args.id == 0 and not args.name: # Neither app ID nor app name are provided 
+                log.error("Invalid parameters, either application name or ID must be provided")
+                print("Error: Invalid parameters, either application name or ID must be provided")
+                return False
+	return True
+
+def initlog(log_file):
+	logger = logging.getLogger()
+	logger.setLevel(logging.INFO)
+	logpath=os.path.join(os.getcwd(),log_file)
+	handler = logging.handlers.RotatingFileHandler(logpath, maxBytes=1048576, backupCount=10)
+	fmt = '%(asctime)s: %(filename)-20s %(levelname)-8s %(message)s'
+	handler.setFormatter(logging.Formatter(fmt))
+	logger.addHandler(handler)
+
+def connect(username, password):
+        client = RavelloClient()
+        try:
+                client.login(username, password)
+        except Exception as e:
+                sys.stderr.write('Error: {!s}\n'.format(e))
+                log.error('Invalid user credentials, username {0}'.format(username))
+                print('Error: Invalid user credentials, username {0}'.format(username))
+                return None
+        return client
+
+def initapp(args,client):
+	app_id = args.id
+	app_name = args.name
+	if app_id == 0: 		# If app ID is unknown find the app based on the app name
+		for app in client.get_applications():
+			if app['name'].lower() == app_name.lower():
+				app_id = app['id']
+				break
+
+	try:				# Check is this is a valid app ID
+		app = client.get_application(app_id)
+		app_name = app['name']
+	except Exception as e:
+		sys.stderr.write('Error: {!s}\n'.format(e))
+		print('Error: invalid application ID', app_id)
+		exit(1)
+
+	return app	
+
+def stop(app,client):
+
+	status = application_state(app)
+
+	if status == 'STOPPED':
+		log.info('Application {0} is in already in {1} state, no action needed'.format(app['name'],status))
+		print('Application {0} is in already in {1} state, no action needed'.format(app['name'],status))
+
+	elif 'STARTING' in status or 'STOPPING' in status:
+		log.info('Application {0} action in progress, not making any change'.format(app['name']))
+		print('Application {0} action in progress, not making any change'.format(app['name']))
+
+	elif 'STARTED' in status:
+		client.stop_application(app['id'])
+		log.info('Stopping application {}'.format(app['name']))
+		print('Stopping application {}'.format(app['name']))
+	else:
+		log.error('Application {0} is in unknown state {1}, canceling START command'.format(app['name'],status))
+		print('Application {0} is in unknown state {1}, canceling START command'.format(app['name'],status))
+		return False
+
+	return True
+
+def main():
+	parser = mkparser()
+	args = parser.parse_args()
+
+	initlog(args.log_file)
+
+	if not validate_param(args):
+		parser.print_help()
+		exit(1)
+
+
+        #Get user credentials
+	username, password  = get_user_credentials(args.username)
+	if not username or not password:
+		exit(1)
+
+	#Connect to Ravello
+	client = connect(username, password)
+	if not client:
+		exit (1)
+
+	app = initapp(args,client)
+
+	rc = stop(app,client)
+
+	exit(rc)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        sys.stderr.write('Error: {!s}\n'.format(e))
