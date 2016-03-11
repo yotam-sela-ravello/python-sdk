@@ -22,33 +22,11 @@ import base64
 import getpass
 from argparse import ArgumentParser
 from ravello_sdk import *
+from common import *
 
 def usage():
 	print("get-app-id.py <application-name>")
   
-def get_credentials():
-        with open(os.path.expanduser("~/.ravello_login"),"r") as pf:
-                username = pf.readline().strip()
-                encrypted_password = pf.readline().strip()
-        password = base64.b64decode(encrypted_password).decode()
-        return username,password
-
-def get_user_credentials(username):
-
-	password = None
-
-	if username:
-		password = getpass.getpass('Enter a Password: ')
-	else:
-		#read user credentials from .ravello_login file in user HOMEDIR
-		username,password = get_credentials()
-
-	if not username or not password:
-		print('Error: User credentials are not set')
-		return None,None
-
-	return username,password
-
 def mkparser():
 	parser = ArgumentParser()
 	parser.add_argument("-i", dest="id",default=0,type=int,help='application ID')

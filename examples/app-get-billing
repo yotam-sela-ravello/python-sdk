@@ -25,13 +25,7 @@ import json
 import datetime
 from argparse import ArgumentParser
 from ravello_sdk import *
-
-def get_credentials():
-        with open(os.path.expanduser("~/.ravello_login"),"r") as pf:
-                username = pf.readline().strip()
-                encrypted_password = pf.readline().strip()
-        password = base64.b64decode(encrypted_password).decode()
-        return username,password
+from common import *
 
 def mkparser():
         parser = ArgumentParser()
@@ -39,22 +33,6 @@ def mkparser():
         parser.add_argument("-y", dest="year",default=None,type=int,help='year of billing')
         parser.add_argument("-u", dest="username",default=None,help='Ravello user account name')
         return parser
-
-def get_user_credentials(username):
-
-        password = None
-
-        if username:
-                password = getpass.getpass('Enter a Password: ')
-        else:
-                #read user credentials from .ravello_login file in user HOMEDIR
-                username,password = get_credentials()
-
-        if not username or not password:
-                print('Error: User credentials are not set')
-                return None,None
-
-        return username,password
 
 def connect(username, password):
         client = RavelloClient()

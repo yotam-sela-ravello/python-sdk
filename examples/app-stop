@@ -24,32 +24,9 @@ import logging
 import logging.handlers
 from argparse import ArgumentParser
 from ravello_sdk import *
+from common import *
 
 log = logging.getLogger('main')
-
-def get_credentials():
-	with open(os.path.expanduser("~/.ravello_login"),"r") as pf:
-		username = pf.readline().strip()
-		encrypted_password = pf.readline().strip()
-	password = base64.b64decode(encrypted_password).decode()
-	return username,password
- 
-def get_user_credentials(username):
-
-        password = None
-
-        if username:
-                password = getpass.getpass('Enter a Password: ')
-        else:
-                #read user credentials from .ravello_login file in user HOMEDIR
-                username,password = get_credentials()
-
-        if not username or not password:
-                log.error('User credentials are not set')
-                print('Error: User credentials are not set')
-                return None,None
-
-        return username,password
 
 def mkparser():
 	parser = ArgumentParser()
