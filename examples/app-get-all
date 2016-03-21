@@ -19,8 +19,6 @@
 import ravello_sdk
 import sys
 import os
-import base64
-import getpass
 import datetime
 import json
 from argparse import ArgumentParser

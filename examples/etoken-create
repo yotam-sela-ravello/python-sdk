@@ -18,11 +18,7 @@
 import ravello_sdk
 import sys
 import os
-import base64
-import getpass
 import json
-import logging
-import logging.handlers
 import time
 from argparse import ArgumentParser
 from ravello_sdk import *

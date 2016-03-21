@@ -18,11 +18,7 @@
 import ravello_sdk
 import sys
 import os
-import base64
-import getpass
 import json
-import logging
-import logging.handlers
 from argparse import ArgumentParser
 from ravello_sdk import *
 from common import *
@@ -117,6 +113,7 @@ def create_app(app_name,app_desc,bp_id,client):
 		app={'name':app_name,'description':app_desc,'baseBlueprintId':bp_id}
 		log.info("Creating a new application {}".format(app_name))
 		print("Creating a new application", app_name)
+		print(app)
 		new_app = client.create_application(app)
 	return new_app
 
