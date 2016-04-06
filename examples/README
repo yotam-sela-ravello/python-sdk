@@ -1,7 +1,4 @@
 These are sample scripts showing how to use Ravello Python SDK to connect and Ravello environment. The scripts require Python3 and Ravello Python SDK to be installed.
-For information about Ravello Python SDK go to
-
-http://ravello-sdk.readthedocs.org/en/ravello-sdk-1.4/
 
 All scripts accept -u <username> parameter and prompt for password. If you want to run scripts in a batch mode you can use set-creds script to store user credentials in an encrypted file. Set-creds script prompts to enter user credentials and, encrypts user password and stores user credentials in .ravello_login file in the user home directory. After that you can run scripts without specifying user credentials. If you want to run a script and connect to Ravello with a user different from the one that is stores in .ravello_login file use -u <username> option.
 
