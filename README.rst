@@ -50,11 +50,6 @@ The following shows a small example of how to use the SDK::
  for app in client.get_applications():
      print('Found Application: {0}'.format(app['name']))
 
-Documentation
--------------
-
-The documentation is available on readthedocs_.
-
 Source Code
 -----------
 
@@ -66,5 +61,4 @@ License
 The Ravello Python SDK is licensed under the Apache 2.0 license.
 
 .. _Ravello: http://www.ravellosystems.com
-.. _readthedocs: http://ravello-sdk.readthedocs.org/en
 .. _Github: https://github.com/ravello/python-sdk
