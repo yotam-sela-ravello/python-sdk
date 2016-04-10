@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # A Ravello SDK example for starting an application
 #
 # Copyright 2011-2016 Ravello Systems, Inc.
@@ -65,7 +65,7 @@ def initapp(args,client):
 	app_name = args.name
 	if app_id == 0: 		# If app ID is unknown find the app based on the app name
 		for app in client.get_applications():
-			if app['name'].lower() == app_name.lower():
+			if app['name'].lower() == app_name.decode('utf-8').lower():
 				app_id = app['id']
 				break
 
@@ -83,30 +83,32 @@ def start(app,app_time,client):
 
 	status = application_state(app)
 
+	app_name = app['name'].encode('utf-8')
+
 	if status == 'STARTED':
-		log.info('Application {0} is in already in {1} state, no action needed'.format(app['name'],status))
-		print('Application {0} is in already in {1} state, no action needed'.format(app['name'],status))
+		log.info('Application {0} is in already in {1} state, no action needed'.format(app_name,status))
+		print('Application {0} is in already in {1} state, no action needed'.format(app_name,status))
 		exp = {'expirationFromNowSeconds': 60*app_time}
 		client.set_application_expiration(app['id'], exp)
-		log.info('Setting expiration time of application {0} to {1} minutes'.format(app['name'],app_time))
-		print('Setting expiration time of application {0} to {1} minutes'.format(app['name'],app_time))
+		log.info('Setting expiration time of application {0} to {1} minutes'.format(app_name,app_time))
+		print('Setting expiration time of application {0} to {1} minutes'.format(app_name,app_time))
 
 	elif 'STARTING' in status or 'STOPPING' in status:
-		log.info('Application {0} action in progress, not making any change'.format(app['name']))
-		print('Application {0} action in progress, not making any change'.format(app['name']))
+		log.info('Application {0} action in progress, not making any change'.format(app_name))
+		print('Application {0} action in progress, not making any change'.format(app_name))
 
 	elif 'STOPPED' in status:
 		if app_time != 0:
 			exp = {'expirationFromNowSeconds': 60*app_time}
 			client.set_application_expiration(app['id'], exp)
-			log.info('Setting expiration time of application {0} to {1} minutes'.format(app['name'],app_time))
-			print('Setting expiration time of application {0} to {1} minutes'.format(app['name'],app_time))
+			log.info('Setting expiration time of application {0} to {1} minutes'.format(app_name,app_time))
+			print('Setting expiration time of application {0} to {1} minutes'.format(app_name,app_time))
 		client.start_application(app['id'])
-		log.info('Starting application {}'.format(app['name']))
-		print('Starting application {}'.format(app['name']))
+		log.info('Starting application {}'.format(app_name))
+		print('Starting application {}'.format(app_name))
 	else:
-		log.error('Application {0} is in unknown state {1}, canceling START command'.format(app['name'],status))
-		print('Application {0} is in unknown state {1}, canceling START command'.format(app['name'],status))
+		log.error('Application {0} is in unknown state {1}, canceling START command'.format(app_name,status))
+		print('Application {0} is in unknown state {1}, canceling START command'.format(app_name,status))
 		return False
 
 	return True

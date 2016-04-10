@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # A Ravello SDK example for getting an application ID
 #
 # Copyright 2011-2016 Ravello Systems, Inc.
@@ -45,7 +45,7 @@ def connect(username, password):
 def get_app_id(app_name,client):
 	app_id = None
 	for app in client.get_applications():
-		if app['name'].lower() == app_name.lower():
+		if app['name'].lower() == app_name.decode('utf-8').lower():
 			app_id = app['id']
 	return app_id
 
