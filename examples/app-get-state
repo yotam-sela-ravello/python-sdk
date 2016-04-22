@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # A Ravello SDK example for getting an application state
 #
 # Copyright 2011-2016 Ravello Systems, Inc.
@@ -19,7 +19,6 @@ import ravello_sdk
 import sys
 import os
 from argparse import ArgumentParser
-from ravello_sdk import *
 from common import *
 
 def mkparser():
@@ -34,16 +33,6 @@ def validate_param(args):
                 print("Error: Invalid parameters, either application name or ID must be provided")
                 return False
 	return True
-
-def connect(username, password):
-        client = RavelloClient()
-        try:
-                client.login(username, password)
-        except Exception as e:
-                sys.stderr.write('Error: {!s}\n'.format(e))
-                print('Error: Invalid user credentials, username {0}'.format(username))
-                return None
-        return client
 
 def initapp(args,client):
 	app_id = args.id

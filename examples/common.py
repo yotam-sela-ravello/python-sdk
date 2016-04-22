@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # A Ravello SDK example for creating and publishing applications from a blueprint
 # 
 # Copyright 2011-2016 Ravello Systems, Inc.
@@ -20,6 +20,7 @@ import base64
 import getpass
 import logging
 import logging.handlers
+from ravello_sdk import *
 
 def get_credentials():
 	with open(os.path.expanduser("~/.ravello_login"),"r") as pf:
@@ -53,4 +54,23 @@ def initlog(log_file):
         fmt = '%(asctime)s: %(filename)-20s %(levelname)-8s %(message)s'
         handler.setFormatter(logging.Formatter(fmt))
         logger.addHandler(handler)
+
+def connect(username, password):
+        client = RavelloClient()
+        try:
+                client.login(username, password)
+        except Exception as e:
+                sys.stderr.write('Error: {!s}\n'.format(e))
+                log.error('Invalid user credentials, username {0}'.format(username))
+                print('Error: Invalid user credentials, username {0}'.format(username))
+                return None
+        return client
+
+def get_app_id(app_name,client):
+        app_id=0
+        for app in client.get_applications():
+                if app['name'].lower() == app_name.lower():
+                        app_id = app['id']
+                        break
+        return app_id
 

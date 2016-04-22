@@ -20,7 +20,6 @@ import sys
 import os
 import json
 from argparse import ArgumentParser
-from ravello_sdk import *
 from common import *
 
 def mkparser():
@@ -37,16 +36,6 @@ def validate_param(args):
                 print("Error: Invalid parameters, either application name or ID must be provided")
                 return False
         return True
-
-def connect(username, password):
-        client = RavelloClient()
-        try:
-                client.login(username, password)
-        except Exception as e:
-                sys.stderr.write('Error: {!s}\n'.format(e))
-                print('Error: Invalid user credentials, username {0}'.format(username))
-                return None
-        return client
 
 def get_app_data(args,client):
 	app_id = args.id

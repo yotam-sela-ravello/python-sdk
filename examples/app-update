@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # A Ravello SDK example for updating an application from a JSON file
 #
 # Copyright 2011-2016 Ravello Systems, Inc.
@@ -20,7 +20,6 @@ import sys
 import os
 import json
 from argparse import ArgumentParser
-from ravello_sdk import *
 from common import *
 
 def mkparser():
@@ -35,17 +34,6 @@ def validate_param(args):
 		print("Error: input file must be provided")
 		return False
 	return True
-
-def connect(username, password):
-        client = RavelloClient()
-        try:
-                client.login(username, password)
-        except Exception as e:
-                sys.stderr.write('Error: {!s}\n'.format(e))
-                print('Error: Invalid user credentials, username {0}'.format(username))
-                return None
-        return client
-
 
 def print_app(app):
 	if(app):

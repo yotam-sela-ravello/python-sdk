@@ -19,7 +19,6 @@ import ravello_sdk
 import sys
 import os
 from argparse import ArgumentParser
-from ravello_sdk import *
 from common import *
 
 def usage():
@@ -42,13 +41,6 @@ def connect(username, password):
 		return None
 	return client
  
-def get_app_id(app_name,client):
-	app_id = None
-	for app in client.get_applications():
-		if app['name'].lower() == app_name.decode('utf-8').lower():
-			app_id = app['id']
-	return app_id
-
 def main():
 	parser = mkparser()
 	args = parser.parse_args()

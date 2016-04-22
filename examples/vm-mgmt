@@ -20,7 +20,6 @@ import sys
 import os
 import json
 from argparse import ArgumentParser
-from ravello_sdk import *
 from common import *
 
 log = logging.getLogger('main')
@@ -36,15 +35,6 @@ def mkparser():
 	parser.add_argument("command",default=None,choices=['start','stop','restart','poweroff','redeploy','repair','resetDisks'],help='command to execute')
 	return parser
 
-def initlog(log_file):
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
-        logpath=os.path.join(os.getcwd(),log_file)
-        handler = logging.handlers.RotatingFileHandler(logpath, maxBytes=1048576, backupCount=10)
-        fmt = '%(asctime)s: %(filename)-20s %(levelname)-8s %(message)s'
-        handler.setFormatter(logging.Formatter(fmt))
-        logger.addHandler(handler)
-
 def validate_param(args):
         if args.app_id == 0 and not args.app_name: # Neither app ID nor app name are provided
                 print("Error: Invalid parameters, either application name or ID must be provided")
@@ -59,24 +49,6 @@ def validate_param(args):
                 return False
 		
         return True
-
-def connect(username, password):
-        client = RavelloClient()
-        try:
-                client.login(username, password)
-        except Exception as e:
-                sys.stderr.write('Error: {!s}\n'.format(e))
-                print('Error: Invalid user credentials, username {0}'.format(username))
-                return None
-        return client
-
-def get_app_id(app_name,client):
-	app_id = 0
-	for app in client.get_applications():
-		if app['name'].lower() == app_name.decode('utf-8').lower():
-			app_id = app['id']
-			break
-	return app_id
 
 def get_vm_id(app_id,vm_name,client):
 	vm_id = 0

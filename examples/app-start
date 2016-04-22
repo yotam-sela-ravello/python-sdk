@@ -19,7 +19,6 @@ import ravello_sdk
 import sys
 import os
 from argparse import ArgumentParser
-from ravello_sdk import *
 from common import *
 
 log = logging.getLogger('main')
@@ -39,26 +38,6 @@ def validate_param(args):
                 print("Error: Invalid parameters, either application name or ID must be provided")
                 return False
         return True
-
-def initlog(log_file):
-	logger = logging.getLogger()
-	logger.setLevel(logging.INFO)
-	logpath=os.path.join(os.getcwd(),log_file)
-	handler = logging.handlers.RotatingFileHandler(logpath, maxBytes=1048576, backupCount=10)
-	fmt = '%(asctime)s: %(filename)-20s %(levelname)-8s %(message)s'
-	handler.setFormatter(logging.Formatter(fmt))
-	logger.addHandler(handler)
-
-def connect(username, password):
-        client = RavelloClient()
-        try:
-                client.login(username, password)
-        except Exception as e:
-                sys.stderr.write('Error: {!s}\n'.format(e))
-                log.error('Invalid user credentials, username {0}'.format(username))
-                print('Error: Invalid user credentials, username {0}'.format(username))
-                return None
-        return client
 
 def initapp(args,client):
 	app_id = args.id

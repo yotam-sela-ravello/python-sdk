@@ -20,15 +20,14 @@ import sys
 import os
 import json
 from argparse import ArgumentParser
-from ravello_sdk import *
 from common import *
 
 log = logging.getLogger('main')
 
 def mkparser():
 	parser = ArgumentParser()
-	parser.add_argument("-b", dest="bp_name",default=None,help='blue print name the application is created from')
-	parser.add_argument("-i", dest="bp_id",default=0,help='blue print name the application is created from')
+	parser.add_argument("-b", dest="bp_name",default=None,help='blueprint name the application is created from')
+	parser.add_argument("-i", dest="bp_id",default=0,help='blueprint name the application is created from')
 	parser.add_argument("-n", dest="app_name",default=None,help='application name')
 	parser.add_argument("-d", dest="app_desc",default=None,help='application description')
 	parser.add_argument("-p", dest="publish",default=False,action="store_true",help='publish application')
@@ -44,8 +43,8 @@ def mkparser():
 
 def validate_param(args):
 	if not args.bp_name and not args.bp_id: # Blue print name or ID must be provided 
-		log.error("Invalid parameters, either blue print name or blue print ID must be provided")
-		print("Error: Invalid parameters, either blue print name or blue print ID must be provided")
+		log.error("Invalid parameters, either blueprint name or blueprint ID must be provided")
+		print("Error: Invalid parameters, either blueprint name or blueprint ID must be provided")
 		return False
 
 	if not args.app_name:
@@ -65,37 +64,9 @@ def validate_param(args):
 
 	return True
 
-def initlog(log_file):
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
-        logpath=os.path.join(os.getcwd(),log_file)
-        handler = logging.handlers.RotatingFileHandler(logpath, maxBytes=1048576, backupCount=10)
-        fmt = '%(asctime)s: %(filename)-20s %(levelname)-8s %(message)s'
-        handler.setFormatter(logging.Formatter(fmt))
-        logger.addHandler(handler)
-
-def connect(username, password):
-	client = RavelloClient()
-	try:
-		client.login(username, password)
-	except Exception as e:
-		sys.stderr.write('Error: {!s}\n'.format(e))
-		log.error('Invalid user credentials, username {0}'.format(username))
-		print('Error: Invalid user credentials, username {0}'.format(username))
-		return None
-	return client
-
-def get_app_id(app_name,client):
-	app_id=0
-	for app in client.get_applications():
-		if app['name'].lower() == app_name.lower():
-			app_id = app['id']
-			break
-	return app_id
-	
 def get_bp_data(bp_id,bp_name,client):
         found_pb = None
-        if bp_id == 0:                 # If blue print ID is unknown find the blue print by name
+        if bp_id == 0:                 # If blueprint ID is unknown find the blueprint by name
                 for bp in client.get_blueprints():
                         if bp['name'].lower() == bp_name.lower():
                                 found_pb = bp

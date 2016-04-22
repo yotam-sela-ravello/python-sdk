@@ -22,7 +22,6 @@ import datetime
 import json
 import datetime
 from argparse import ArgumentParser
-from ravello_sdk import *
 from common import *
 
 def mkparser():
@@ -31,16 +30,6 @@ def mkparser():
         parser.add_argument("-y", dest="year",default=None,type=int,help='year of billing')
         parser.add_argument("-u", dest="username",default=None,help='Ravello user account name')
         return parser
-
-def connect(username, password):
-        client = RavelloClient()
-        try:
-                client.login(username, password)
-        except Exception as e:
-                sys.stderr.write('Error: {!s}\n'.format(e))
-                print('Error: Invalid user credentials, username {0}'.format(username))
-                return None
-        return client
 
 def set_billing_period(args):
 

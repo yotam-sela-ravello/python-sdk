@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 # A Ravello SDK example for storing user credentials in a file
 #
 # Copyright 2011-2016 Ravello Systems, Inc.
@@ -18,11 +18,17 @@
 import base64
 import os
 import getpass
+from sys import version_info
 
-username = input("Enter username: ")
+py3 = version_info[0] > 2
+if py3:
+	username = input("Enter username: ")
+else:
+	username = raw_input("Enter username: ")
+
 password = getpass.getpass('Enter a Password: ')
 
-encryped_password = base64.b64encode(bytes(password,"utf-8"))
+encryped_password = base64.b64encode(password.encode('utf-8'))
 
 with open(os.path.expanduser("~/.ravello_login"),"wb") as f:
 	f.write(str(username+'\n').encode())

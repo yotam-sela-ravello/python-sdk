@@ -20,7 +20,6 @@ import sys
 import os
 import json
 from argparse import ArgumentParser
-from ravello_sdk import *
 from common import *
 
 def mkparser():
@@ -37,32 +36,9 @@ def validate_param(args):
                 return False
         return True
 
-def connect(username, password):
-        client = RavelloClient()
-        try:
-                client.login(username, password)
-        except Exception as e:
-                sys.stderr.write('Error: {!s}\n'.format(e))
-                print('Error: Invalid user credentials, username {0}'.format(username))
-                return None
-        return client
-
-def get_app_id(app_name,client):
-	app_id = 0
-	for app in client.get_applications():
-		if app['name'].lower() == app_name.decode('utf-8').lower():
-			app_id = app['id']
-			break
-	return app_id
-
 def get_vms(app_id, client):
-	vms = client.get_vms(app_id)
-	vm_list = []
-	for vm in vms:
-		vm_data = client.get_vm(app_id,vm['id'],'deployment')
-		if vm_data:
-			vm_list.append(vm_data)
-	return vm_list
+	vms = client.get_vms(app_id,level='deployment')
+	return vms
 
 def print_vms(vms,out_file):
 	if vms:
