@@ -619,7 +619,7 @@ class RavelloClient(object):
             app = '{0};{1}'.format(app, aspect)
         return self.request('GET', '/applications/{0}/vms/{1}'.format(app, vm))
 
-    def get_vms(self, app, filter=None):
+    def get_vms(self, app, filter=None, level='design'):
         """Return a list with all vms (for a given app).
 
         The *filter* argument can be used to return only a subset of the
@@ -627,7 +627,7 @@ class RavelloClient(object):
         :meth:`wait_for`.
         """
         if isinstance(app, dict): app = app['id']
-        apps = self.request('GET', '/applications/{0}/vms'.format(app))
+        apps = self.request('GET', '/applications/{0};{1}/vms'.format(app,level))
         if filter is not None:
             apps = _match_filter(apps, filter)
         return apps
