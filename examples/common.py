@@ -16,6 +16,7 @@
 # the License.
 
 import os
+import sys
 import base64
 import getpass
 import logging
@@ -40,7 +41,6 @@ def get_user_credentials(username):
 		username,password = get_credentials()
 
 	if not username or not password:
-		log.error('User credentials are not set')
 		print('Error: User credentials are not set')
 		return None,None
 
@@ -61,7 +61,6 @@ def connect(username, password):
                 client.login(username, password)
         except Exception as e:
                 sys.stderr.write('Error: {!s}\n'.format(e))
-                log.error('Invalid user credentials, username {0}'.format(username))
                 print('Error: Invalid user credentials, username {0}'.format(username))
                 return None
         return client
