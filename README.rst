@@ -43,10 +43,10 @@ Various usage examples exist for the SDK (credit goes to the relevant contribute
 * A simple script for adding VMs to a published application - https://github.com/ravello/vmware-automation 
 
 The following shows a small example of how to use the SDK::
-
+When the organization of the user has an identity domain, the user must include it in the username: <identity_domain>/<username>. Otherwise use only the username.
  from ravello_sdk import *
  client = RavelloClient()
- client.login('username', 'Passw0rd')
+ client.login('identity_domain/username', 'Passw0rd')
  for app in client.get_applications():
      print('Found Application: {0}'.format(app['name']))
 

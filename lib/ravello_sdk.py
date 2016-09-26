@@ -286,6 +286,10 @@ class RavelloClient(object):
 
         It is not mandatory to call this method. If this method is not called,
         the client will automatically login when required.
+
+        When the organization of the user has an identity domain,
+        the user must include it in the username: <identity_domain>/<username>.
+        Otherwise use only the username.
         """
         if self.logged_in:
             raise RuntimeError('already logged in')
