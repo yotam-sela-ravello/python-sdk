@@ -42,9 +42,9 @@ Various usage examples exist for the SDK (credit goes to the relevant contribute
 * A cool example for implementing a highly available load balancer on top of Ravello using the Python SDK - https://gist.github.com/robertoandrade/29e60d41aee6342c16c7
 * A simple script for adding VMs to a published application - https://github.com/ravello/vmware-automation 
 
-The following shows a small example of how to use the SDK::
-* When the organization of the user has an identity domain, the user must include it in the username: identity_domain/username .
-Otherwise use only the username.
+The following shows a small example of how to use the SDK:
+When the organization of the user has an identity domain, the user must include it in the username: identity_domain/username .
+Otherwise use only the username. ::
 
  from ravello_sdk import *
  client = RavelloClient()
