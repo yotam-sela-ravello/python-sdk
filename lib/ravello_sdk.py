@@ -201,16 +201,20 @@ class RavelloClient(object):
     default_retries = 3
     default_redirects = 3
 
-    def __init__(self, username=None, password=None, url=None, timeout=None, retries=None, proxy_url=None, eph_token=None):
+    def __init__(self, username=None, password=None, url=None, timeout=None, retries=None, proxy_url=None, eph_token=None, identity_domain=None):
         """Create a new client.
 
         The *username* and *password* parameters specify the credentials to use
-        when connecting to the API. The *timeout* and *retries* parameters
+        when connecting to the API. When the organization of the user has an identity domain,
+        the user must specify it or include it in the username: <identity_domain>/<username>.
+        When the organization doesnt have an identity domain use only the username.
+        The *timeout* and *retries* parameters
         specify the default network system call time timeout and maximum number
         of retries respectively.
         *proxy_url* should be used when an HTTP proxy is in place.
         *eph_token* is ephemeral access token to be used instead of username/password.
         """
+        self._identity_domain = identity_domain
         self._username = username
         self._password = password
         self.timeout = timeout if timeout is not None else self.default_timeout
@@ -278,7 +282,7 @@ class RavelloClient(object):
         if self._connection is not None:
             self._connection.proxies = self._proxies
 
-    def login(self, username=None, password=None):
+    def login(self, username=None, password=None, identity_domain=None):
         """Login to the API.
 
         This method performs a login to the API, and store the resulting
@@ -288,13 +292,15 @@ class RavelloClient(object):
         the client will automatically login when required.
 
         When the organization of the user has an identity domain,
-        the user must include it in the username: <identity_domain>/<username>.
-        Otherwise use only the username.
+        the user must specify it or include it in the username: <identity_domain>/<username>.
+        When the organization doesnt have an identity domain use only the username.
         """
         if self.logged_in:
             raise RuntimeError('already logged in')
         if username is not None:
             self._username = username
+        if identity_domain is not None:
+            self._identity_domain = identity_domain
         if password is not None:
             self._password = password
         self._login()
@@ -309,7 +315,10 @@ class RavelloClient(object):
         self._autologin = False
         if self.have_credentials:
             self._logger.debug('performing a username/password login')
-            auth = '{0}:{1}'.format(self._username, self._password)
+            if self._identity_domain is not None:
+                auth = '{0}:{1}'.format(self._identity_domain + "/" + self._username, self._password)
+            else:
+                auth = '{0}:{1}'.format(self._username, self._password)
             auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
             headers = [('Authorization', 'Basic {0}'.format(auth))]
             response = self._request('POST', '/login', b'', headers)
