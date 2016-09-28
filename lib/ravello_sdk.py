@@ -1100,7 +1100,7 @@ class RavelloClient(object):
         """Return a list of resource permission descriptors."""
         return self.request('GET', '/permissionsGroups/describe')
 
-    def create_elastic_ip(self, name, description, locationType, locationName):
+    def create_elastic_ip(self, locationType, locationName, name=None, description=None):
         """Creates elastic Ip. Returns the ip"""
         req = {'name': name,
                'description': description,
