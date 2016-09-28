@@ -549,6 +549,19 @@ class RavelloClient(object):
         """
         return self.request('PUT', '/applications/{0}'.format(app['id']), app)
 
+    def update_vm(self, app, vm):
+        """Update an existing vm.
+
+        The *app* parameter is the app containing the vm to update.
+
+        The *vm* parameter must be the updated vm. The way to update
+        a vm (or any other resource) is to first retrieve it, make
+        the updates client-side, and then use this method to make the update.
+
+        The updated vm is returned.
+        """
+        return self.request('PUT', '/applications/{0}/vms/{1}'.format(app['id'], vm['id']), entity=vm)
+
     def delete_application(self, app):
         """Delete an application with ID *app*."""
         if isinstance(app, dict): app = app['id']
