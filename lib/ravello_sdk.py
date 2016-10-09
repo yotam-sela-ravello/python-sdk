@@ -623,14 +623,14 @@ class RavelloClient(object):
     def get_application_publish_locations(self, app, req=None):
         """Get a list of locations where *app* can be published."""
         if isinstance(app, dict): app = app['id']
-        url = '/applications/{0}/findPublishLocations'.format(app)
-        return self.request('POST', url, req)
+        url = '/applications/{0}/publishLocations'.format(app)
+        return self.request('GET', url, req)
 
     def get_blueprint_publish_locations(self, bp, req=None):
         """Get a list of locations where *bp* can be published."""
         if isinstance(bp, dict): bp = bp['id']
-        url = '/blueprints/{0}/findPublishLocations'.format(bp)
-        return self.request('POST', url, req)
+        url = '/blueprints/{0}/publishLocations'.format(bp)
+        return self.request('GET', url, req)
 
     def get_vm(self, app, vm, aspect=None):
         """Return the vm with ID *vm* in the appplication with ID *app*,
@@ -714,7 +714,7 @@ class RavelloClient(object):
         *app* is the application to get the charges for
         *mode* optional parameter, either 'design' or 'deployment' (default value)
         *deployment_options* optional parameter, should be non empty if and only if *mode* is being used, is a dict 
-        with the various deployment options (optimizationLevel, cloud and region) when querying for a design pricing. 
+        with the deployment optimizationLevel when querying for a design pricing.
         See the REST API docs for details on possible values.
         """
         if isinstance(app, dict): app = app['id']
@@ -1126,9 +1126,15 @@ class RavelloClient(object):
         """Return a list of resource permission descriptors."""
         return self.request('GET', '/permissionsGroups/describe')
 
-    def create_elastic_ip(self, location):
+    def create_elastic_ip(self, locationType, locationName, name=None, description=None):
         """Creates elastic Ip. Returns the ip"""
-        return self.request('POST', '/elasticIps/{0}/'.format(location))
+        req = {'name': name,
+               'description': description,
+               'locationType': locationType,
+               'locationName': locationName
+               }
+
+        return self.request('POST', '/elasticIps/', req)
 
     def delete_elastic_ip(self, ip):
         """
