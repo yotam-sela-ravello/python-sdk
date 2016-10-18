@@ -21,12 +21,12 @@ from setuptools import setup
 
 version_info = {
     'name': 'ravello-sdk',
-    'version': '1.27',
+    'version': '2.0',
     'description': 'Python SDK for the Ravello API',
     'author': 'Geert Jansen',
     'author_email': 'geert.jansen@ravellosystems.com',
-    'maintainer': 'Elaye Karstadt',
-    'maintainer_email': 'elaye.karstadt@ravellosystems.com',
+    'maintainer': 'Hadar Davidovich',
+    'maintainer_email': 'hadar.davidovich@oracle.com',
     'url': 'https://github.com/ravello/python-sdk',
     'license': 'Apache 2.0',
     'classifiers': [
