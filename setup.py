@@ -21,7 +21,7 @@ from setuptools import setup
 
 version_info = {
     'name': 'ravello-sdk',
-    'version': '2.0',
+    'version': '2.1',
     'description': 'Python SDK for the Ravello API',
     'author': 'Geert Jansen',
     'maintainer': 'Hadar Davidovich',
