@@ -1256,7 +1256,7 @@ class RavelloClient(object):
         The *cost_bucket_details* parameter is a dict describing the cost bucket to create.
         This parameter has a mandatory field named *name*, as well as optional fields:
         - description - The description of the cost bucket
-        - parentId - The ID of the cost bucket parent, which is also a cost bucket. If this parameter is missing, the default parentId, “Organization”, is set.
+        - parentId - The ID of the cost bucket parent, which is also a cost bucket. If this parameter is missing, the default parentId, "Organization", is set.
         """
         return self.request('POST', '/costBuckets', cost_bucket_details)
 
@@ -1302,7 +1302,7 @@ class RavelloClient(object):
         This parameter has several mandatory fields: 
         - aggregationTimeUnit - The duration of the aggregation. Possible values: daily, weekly, monthly, yearly, all_times.
         - costLimit - The limit in dollars.
-        - aggregationParent - Possible values: “cost_bucket” or “application”. If “cost_bucket” is sent, an alert is sent when the quota for this bucket is exceeded. If “application” is sent, an alert is sent when the quota is exceeded for this application.
+        - aggregationParent - Possible values: "cost_bucket" or "application". If "cost_bucket" is sent, an alert is sent when the quota for this bucket is exceeded. If "application" is sent, an alert is sent when the quota is exceeded for this application.
         - parentId - The ID of the cost_bucket / application in which the alert is defined.
         This parameter has several optional fields:
         - description - The description of the cost bucket
@@ -1312,7 +1312,7 @@ class RavelloClient(object):
         return self.request('POST', '/costAlertDefinitions', cost_alert_definition_details)
 
     def update_cost_alert_definition(self, cost_alert_definition, cost_alert_definition_details):
-        """Updates a specific cost alert definition. The user should have the following permissions in order to complete this operation: UPDATE permission on cost alert definitions, READ permission on the aggregation parent (the cost bucket or application’s on which the alert is set) and READ permission on Billing Info.
+        """Updates a specific cost alert definition. The user should have the following permissions in order to complete this operation: UPDATE permission on cost alert definitions, READ permission on the aggregation parent (the cost bucket or application's on which the alert is set) and READ permission on Billing Info.
         The *cost_alert_definition* parameter is the ID of the cost alert definition to update
         The *cost_alert_definition_details* parameter is a dict describing the cost alert definition to update.
         """
@@ -1320,7 +1320,7 @@ class RavelloClient(object):
         return self.request('PUT', '/costAlertDefinitions/{0}'.format(cost_alert_definition), cost_alert_definition_details)
 
     def delete_cost_alert_definition(self, cost_alert_definition):
-        """Deletes a cost alert definition. The user should have the following permissions in order to complete this operation: DELETE permission on cost alert definitions, READ permission on the aggregation parent (the cost bucket or application’s on which the alert is set) and READ permission on Billing Info.
+        """Deletes a cost alert definition. The user should have the following permissions in order to complete this operation: DELETE permission on cost alert definitions, READ permission on the aggregation parent (the cost bucket or application's on which the alert is set) and READ permission on Billing Info.
         The *cost_alert_definition* parameter is the ID of the cost alert definition to delete
         """
         if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
