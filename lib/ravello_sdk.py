@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from __future__ import absolute_import, print_function
 
 import sys
@@ -1239,4 +1238,119 @@ class RavelloClient(object):
     def get_communities(self):
         """Retrieves all communities."""
         return self.request('GET', '/communities')
+
+    def get_cost_buckets(self, permissions="execute,update", skip_deleted=False):
+        """Retrieves all cost buckets
+        *permissions* - Possible values: execute, create, read, update, delete, share or ephemeral_access, or any combination of the above, comma separated. The returned list will be only buckets with user's authentication plus defined permissions.
+        *skip_deleted* - If False, list contains also deleted cost buckets.
+        """
+        skip_deleted_str=str(skip_deleted).lower()
+        return self.request('GET', '/costBuckets?permissions={0}&skipDeleted={1}'.format(permissions,skip_deleted_str))
+
+    def get_cost_bucket(self, cost_bucket):
+        """Retrieves an existing cost bucket.
+        The *cost_bucket* parameter is the ID of the cost bucket to retrieve
+        """
+        if isinstance(cost_bucket, dict): cost_bucket = cost_bucket['id']
+        return self.request('GET', '/costBuckets/{0}'.format(cost_bucket))
+
+    def create_cost_bucket(self, cost_bucket_details):
+        """Creates a new cost bucket.
+        The *cost_bucket_details* parameter is a dict describing the cost bucket to create.
+        This parameter has a mandatory field named *name*, as well as optional fields:
+        - description - The description of the cost bucket
+        - parentId - The ID of the cost bucket parent, which is also a cost bucket. If this parameter is missing, the default parentId, "Organization", is set.
+        """
+        return self.request('POST', '/costBuckets', cost_bucket_details)
+
+    def update_cost_bucket(self, cost_bucket, cost_bucket_details):
+        """Updates an existing cost bucket.
+        The *cost_bucket* parameter is the ID of the cost bucket to update
+        The *cost_bucket_details* parameter is a dict describing the cost bucket details
+        """
+        if isinstance(cost_bucket, dict): cost_bucket = cost_bucket['id']
+        return self.request('PUT', '/costBuckets/{0}'.format(cost_bucket), cost_bucket_details)
+
+    def associate_resource_to_cost_bucket(self, cost_bucket, resource_details):
+        """Associate Billed Resource to a Different Cost Bucket
+        The *cost_bucket* parameter is the ID of the cost bucket the resource will be associated to
+        The *resource_details* parameter is a dict describing the resource to associate details
+        """
+        if isinstance(cost_bucket, dict): cost_bucket = cost_bucket['id']
+        return self.request('PUT', '/costBuckets/{0}/associateResource'.format(cost_bucket), resource_details)
+
+    def describe_cost_bucket(self):
+        """Describe Cost Bucket
+        """
+        return self.request('GET', '/costBuckets/describe')
+
+    def get_cost_alert_definition(self, cost_alert_definition):
+        """Returns a single cost alert definition according to its ID.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to retrieve
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        return self.request('GET', '/costAlertDefinitions/{0}'.format(cost_alert_definition))
+
+    def get_cost_alert_definitions(self, cost_bucket):
+        """Retrieves all the cost alert definitions for an existing cost bucket.
+        The *cost_bucket* parameter is the ID of the cost bucket to retrieve
+        """
+        if isinstance(cost_bucket, dict): cost_bucket = cost_bucket['id']
+        return self.request('GET', '/costBuckets/{0}/costAlertDefinitions'.format(cost_bucket))
+
+    def create_cost_alert_definition(self, cost_alert_definition_details):
+        """Creates a new cost alert definition. In addition to permission to create cost alert definitions,
+         the user must also have READ permission on the aggregation parent, and READ permission on Billing Info.
+        The *cost_alert_definition_details* parameter is a dict describing the cost alert definition to create.
+        This parameter has several mandatory fields: 
+        - aggregationTimeUnit - The duration of the aggregation. Possible values: daily, weekly, monthly, yearly, all_times.
+        - costLimit - The limit in dollars.
+        - aggregationParent - Possible values: "cost_bucket" or "application". If "cost_bucket" is sent, an alert is sent when the quota for this bucket is exceeded. If "application" is sent, an alert is sent when the quota is exceeded for this application.
+        - parentId - The ID of the cost_bucket / application in which the alert is defined.
+        This parameter has several optional fields:
+        - description - The description of the cost bucket
+        - warningThreshold - The threshold for warning, as a percentage.
+        - userIds - List of IDs of the users that will receive the messages when the configured quota is exceeded.
+        """
+        return self.request('POST', '/costAlertDefinitions', cost_alert_definition_details)
+
+    def update_cost_alert_definition(self, cost_alert_definition, cost_alert_definition_details):
+        """Updates a specific cost alert definition. The user should have the following permissions in order to complete this operation: UPDATE permission on cost alert definitions, READ permission on the aggregation parent (the cost bucket or application's on which the alert is set) and READ permission on Billing Info.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to update
+        The *cost_alert_definition_details* parameter is a dict describing the cost alert definition to update.
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        return self.request('PUT', '/costAlertDefinitions/{0}'.format(cost_alert_definition), cost_alert_definition_details)
+
+    def delete_cost_alert_definition(self, cost_alert_definition):
+        """Deletes a cost alert definition. The user should have the following permissions in order to complete this operation: DELETE permission on cost alert definitions, READ permission on the aggregation parent (the cost bucket or application's on which the alert is set) and READ permission on Billing Info.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to delete
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        return self.request('DELETE', '/costAlertDefinitions/{0}'.format(cost_alert_definition))
+
+    def get_users_of_cost_alert_definition(self, cost_alert_definition):
+        """Returns list of all the recipients of a specific cost alert definition.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to retrieve
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        return self.request('GET', '/costAlertDefinitions/{0}/users'.format(cost_alert_definition))
+
+    def add_user_to_cost_alert_definition(self, cost_alert_definition, user):
+        """Adds a recipient to the cost alert definition. Required permissions: READ permission on the user, and UPDATE permission on the Cost Alert Definition.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to add the user to
+        The *user* parameter is the ID of the user to add to the cost alert definition
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        if isinstance(user, dict): user = user['id']
+        return self.request('POST', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition,user))
+
+    def remove_user_from_cost_alert_definition(self, cost_alert_definition, user):
+        """Deletes related user from cost alert definition. Required permissions: READ permission on the user, and UPDATE permission on the Cost Alert Definition.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to remove the user from
+        The *user* parameter is the ID of the user to remove from the cost alert definition
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        if isinstance(user, dict): user = user['id']
+        return self.request('DELETE', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition,user))
 
