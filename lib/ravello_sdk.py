@@ -1239,12 +1239,13 @@ class RavelloClient(object):
         """Retrieves all communities."""
         return self.request('GET', '/communities')
 
-    def get_cost_buckets(self, permissions="execute,update", skip_deleted="false"):
+    def get_cost_buckets(self, permissions="execute,update", skip_deleted=False):
         """Retrieves all cost buckets
         *permissions* - Possible values: execute, create, read, update, delete, share or ephemeral_access, or any combination of the above, comma separated. The returned list will be only buckets with user's authentication plus defined permissions.
-        *skip_deleted* - If false, list contains also deleted cost buckets.
+        *skip_deleted* - If False, list contains also deleted cost buckets.
         """
-        return self.request('GET', '/costBuckets?permissions={0}&skipDeleted={1}'.format(permissions,skip_deleted))
+        skip_deleted_str=str(skip_deleted).lower()
+        return self.request('GET', '/costBuckets?permissions={0}&skipDeleted={1}'.format(permissions,skip_deleted_str))
 
     def get_cost_bucket(self, cost_bucket):
         """Retrieves an existing cost bucket.
