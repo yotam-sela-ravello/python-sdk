@@ -1343,7 +1343,7 @@ class RavelloClient(object):
         """
         if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
         if isinstance(user, dict): user = user['id']
-        return self.request('POST', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition,user))
+        return self.request('POST', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition, user))
 
     def remove_user_from_cost_alert_definition(self, cost_alert_definition, user):
         """Deletes related user from cost alert definition. Required permissions: READ permission on the user, and UPDATE permission on the Cost Alert Definition.
@@ -1352,5 +1352,24 @@ class RavelloClient(object):
         """
         if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
         if isinstance(user, dict): user = user['id']
-        return self.request('DELETE', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition,user))
+        return self.request('DELETE', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition, user))
 
+    def get_shares(self):
+        """Get List of Shares."""
+        return self.request('GET', '/shares')
+
+    def share_resource(self, share_details):
+        """Share Specific Resource.
+        The *share_details* parameter is a dict, describing the share to create.
+        All fields are mandatory:
+        - targetEmail - The email address of the user the share the resource with.
+        - sharedResourceType - Should be one of the following: BLUEPRINT, LIBRARY_VM, DISK_IMAGE
+        - sharedResourceId - The resource ID
+        """
+        return self.request('POST', '/shares', share_details)
+
+    def delete_share(self, share_id):
+        """Delete Share Data by ID.
+        Unshare specific resource.
+        """
+        return self.request('DELETE', '/shares/{0}'.format(share_id))
