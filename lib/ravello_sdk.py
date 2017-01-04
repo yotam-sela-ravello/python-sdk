@@ -1354,6 +1354,7 @@ class RavelloClient(object):
         if isinstance(user, dict): user = user['id']
         return self.request('DELETE', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition, user))
 
+
     def get_shares(self):
         """Get List of Shares."""
         return self.request('GET', '/shares')
