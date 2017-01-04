@@ -1369,8 +1369,9 @@ class RavelloClient(object):
         """
         return self.request('POST', '/shares', share_details)
 
-    def delete_share(self, share_id):
+    def delete_share(self, share):
         """Delete Share Data by ID.
         Unshare specific resource.
         """
-        return self.request('DELETE', '/shares/{0}'.format(share_id))
+        if isinstance(share, dict): share = share['id']
+        return self.request('DELETE', '/shares/{0}'.format(share))
