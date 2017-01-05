@@ -21,6 +21,7 @@ import time
 import json
 import random
 import requests
+import urllib
 
 # Python 2.x / 3.x module name differences
 try:
@@ -1354,10 +1355,21 @@ class RavelloClient(object):
         if isinstance(user, dict): user = user['id']
         return self.request('DELETE', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition, user))
 
+    def get_shares(self, request=None):
+        """Get List of Shares.
+        Returns a list of share records, optional filters could be used.
+        - sharingUserId	- The ID of the sharing user.
+        - targetEmail - The email of the user whom we share the resource with.
+        - sharedResourceType - Could be one of the following: BLUEPRINT, LIBRARY_VM, DISK_IMAGE.
+        - sharedResourceId - The resource ID.
+        """
 
-    def get_shares(self):
-        """Get List of Shares."""
-        return self.request('GET', '/shares')
+        if isinstance(request, dict):
+            query = urllib.urlencode(request)
+            path = '/shares?{0}'.format(query)
+        else:
+            path = '/shares'
+        return self.request('GET', path)
 
     def share_resource(self, share_details):
         """Share Specific Resource.
