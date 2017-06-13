@@ -803,6 +803,19 @@ class RavelloClient(object):
         if isinstance(bp, dict): bp = bp['id']
         self.request('DELETE', '/blueprints/{0}'.format(bp))
 
+    def get_detailed_charges_for_blueprint(self, bp, mode = 'deployment', deployment_options = {}):
+        """Get the detailed storage charges for a blueprint.
+        *bp* is the blueprint to get the charges for
+        *mode* optional parameter, either 'design' or 'deployment' (default value)
+        *deployment_options* optional parameter, should be non empty if and only if *mode* is being used, is a dict 
+        with the deployment optimizationLevel when querying for a design pricing.
+        See the REST API docs for details on possible values.
+        """
+        if isinstance(bp, dict): bp = bp['id']
+        if mode =='design' and deployment_options == {}:
+            raise RavelloError("Cannot query for detailed blueprint charges with mode=design and no deployment_options")
+        return self.request('POST', '/blueprints/{0}/calcPrice;{1}'.format(bp, mode), deployment_options)
+
     def get_image(self, img):
         """Return the image with ID *img*, or None if it does not exist."""
         if isinstance(img, dict): img = img['id']
