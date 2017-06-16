@@ -813,7 +813,7 @@ class RavelloClient(object):
         if isinstance(bp, dict): bp = bp['id']
         if 'optimizationLevel' not in deployment_options:
             raise RavelloError("Cannot query for detailed blueprint charges with no optimizationLevel specified in deployment_options")
-        return self.request('POST', '/blueprints/{0}/calcPrice;design'.format(bp), deployment_options)
+        return self.request('POST', '/blueprints/{0}/calcPrice'.format(bp), deployment_options)
 
     def get_image(self, img):
         """Return the image with ID *img*, or None if it does not exist."""
