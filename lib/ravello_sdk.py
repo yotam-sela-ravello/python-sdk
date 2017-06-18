@@ -803,6 +803,18 @@ class RavelloClient(object):
         if isinstance(bp, dict): bp = bp['id']
         self.request('DELETE', '/blueprints/{0}'.format(bp))
 
+    def get_detailed_charges_for_blueprint(self, bp, deployment_options = {}):
+        """Estimate the detailed charges for an application deployed from this blueprint.
+        *bp* is the blueprint to get the charges for
+        *deployment_options* required parameter, is a dict 
+        with the deployment optimizationLevel when querying for a design pricing.
+        See the REST API docs for details on possible values.
+        """
+        if isinstance(bp, dict): bp = bp['id']
+        if 'optimizationLevel' not in deployment_options:
+            raise RavelloError("Cannot query for detailed blueprint charges with no optimizationLevel specified in deployment_options")
+        return self.request('POST', '/blueprints/{0}/calcPrice'.format(bp), deployment_options)
+
     def get_image(self, img):
         """Return the image with ID *img*, or None if it does not exist."""
         if isinstance(img, dict): img = img['id']
