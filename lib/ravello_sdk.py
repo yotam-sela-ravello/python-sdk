@@ -962,6 +962,15 @@ class RavelloClient(object):
         org = self.get_organization()['id']
         return self.request('POST', '/organizations/{0}/users'.format(org), user)
 
+    def invite_user(self, user):
+        """Invite a new user.
+
+        The *user* parameter must be a dict describing the user to invite.
+
+        The new user is returned.
+        """
+        return self.request('POST', '/users/invite', user)
+
     def update_user(self, user, userId):
         """Update an existing user.
 
