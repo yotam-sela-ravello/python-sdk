@@ -952,16 +952,6 @@ class RavelloClient(object):
             users = _match_filter(users, filter)
         return users
 
-    def create_user(self, user):
-        """Invite a new user to organization.
-
-        The *user* parameter must be a dict describing the user to invite.
-
-        The new user is returned.
-        """
-        org = self.get_organization()['id']
-        return self.request('POST', '/organizations/{0}/users'.format(org), user)
-
     def invite_user(self, user):
         """Invite a new user.
 
