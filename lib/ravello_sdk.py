@@ -707,7 +707,9 @@ class RavelloClient(object):
         headers = [('Accept', 'text/plain')]
         url = self.request('GET', '/applications/{0}/vms/{1}/vncUrl'.format(app, vm),
                            headers=headers)
-        return url.decode('iso-8859-1')
+        if hasattr(url, "decode"):
+            return url.decode('iso-8859-1')
+        return url
 
     def get_detailed_charges_for_application(self, app, mode = 'deployment', deployment_options = {}):
         """Get the detailed hourly charges for an application.
