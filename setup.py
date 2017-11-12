@@ -19,16 +19,21 @@ from __future__ import absolute_import, print_function
 import os
 from setuptools import setup
 
-version_info = {
-    'name': 'ravello-sdk',
-    'version': '2.7',
-    'description': 'Python SDK for the Ravello API',
-    'author': 'Geert Jansen',
-    'maintainer': 'Hadar Davidovich',
-    'maintainer_email': 'hadar.davidovich@oracle.com',
-    'url': 'https://github.com/ravello/python-sdk',
-    'license': 'Apache 2.0',
-    'classifiers': [
+
+if __name__ == '__main__':
+    setup(
+        package_dir={'': 'lib'},
+        py_modules=['ravello_sdk', 'ravello_cli'],
+        install_requires=['six', 'docopt', 'requests>=2.6.0'],
+        name= 'ravello-sdk',
+        version= '2.7',
+        description= 'Python SDK for the Ravello API',
+        author= 'Geert Jansen',
+        maintainer= 'Hadar Davidovich',
+        maintainer_email= 'hadar.davidovich@oracle.com',
+        url= 'https://github.com/ravello/python-sdk',
+        license= 'Apache 2.0',
+        classifiers= [
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: POSIX',
@@ -37,15 +42,5 @@ version_info = {
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4'
-    ]
-}
-
-
-if __name__ == '__main__':
-    setup(
-        package_dir={'': 'lib'},
-        py_modules=['ravello_sdk', 'ravello_cli'],
-        install_requires=['six', 'docopt', 'requests>=2.6.0'],
-        **version_info
+        'Programming Language :: Python :: 3.4']
     )
