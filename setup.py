@@ -22,7 +22,7 @@ from setuptools import setup
 
 version_info = {
     'name': 'ravello-sdk',
-    'version': '2.7',
+    'version': '2.8.dev',
     'description': 'Python SDK for the Ravello API',
     'author': 'Geert Jansen',
     'maintainer': 'Hadar Davidovich',
@@ -36,7 +36,7 @@ version_info = {
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
         'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 2.8.dev',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4'
     ]
