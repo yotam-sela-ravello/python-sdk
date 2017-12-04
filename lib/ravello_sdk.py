@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from __future__ import absolute_import, print_function
 
 import sys
@@ -22,6 +21,7 @@ import time
 import json
 import random
 import requests
+import urllib
 
 # Python 2.x / 3.x module name differences
 try:
@@ -201,16 +201,20 @@ class RavelloClient(object):
     default_retries = 3
     default_redirects = 3
 
-    def __init__(self, username=None, password=None, url=None, timeout=None, retries=None, proxy_url=None, eph_token=None):
+    def __init__(self, username=None, password=None, url=None, timeout=None, retries=None, proxy_url=None, eph_token=None, identity_domain=None):
         """Create a new client.
 
         The *username* and *password* parameters specify the credentials to use
-        when connecting to the API. The *timeout* and *retries* parameters
+        when connecting to the API. When the organization of the user has an identity domain,
+        the user must specify it or include it in the username: <identity_domain>/<username>.
+        When the organization doesnt have an identity domain use only the username.
+        The *timeout* and *retries* parameters
         specify the default network system call time timeout and maximum number
         of retries respectively.
         *proxy_url* should be used when an HTTP proxy is in place.
         *eph_token* is ephemeral access token to be used instead of username/password.
         """
+        self._identity_domain = identity_domain
         self._username = username
         self._password = password
         self.timeout = timeout if timeout is not None else self.default_timeout
@@ -278,7 +282,7 @@ class RavelloClient(object):
         if self._connection is not None:
             self._connection.proxies = self._proxies
 
-    def login(self, username=None, password=None):
+    def login(self, username=None, password=None, identity_domain=None):
         """Login to the API.
 
         This method performs a login to the API, and store the resulting
@@ -286,11 +290,17 @@ class RavelloClient(object):
 
         It is not mandatory to call this method. If this method is not called,
         the client will automatically login when required.
+
+        When the organization of the user has an identity domain,
+        the user must specify it or include it in the username: <identity_domain>/<username>.
+        When the organization doesnt have an identity domain use only the username.
         """
         if self.logged_in:
             raise RuntimeError('already logged in')
         if username is not None:
             self._username = username
+        if identity_domain is not None:
+            self._identity_domain = identity_domain
         if password is not None:
             self._password = password
         self._login()
@@ -305,7 +315,10 @@ class RavelloClient(object):
         self._autologin = False
         if self.have_credentials:
             self._logger.debug('performing a username/password login')
-            auth = '{0}:{1}'.format(self._username, self._password)
+            if self._identity_domain is not None:
+                auth = '{0}:{1}'.format(self._identity_domain + "/" + self._username, self._password)
+            else:
+                auth = '{0}:{1}'.format(self._username, self._password)
             auth = base64.b64encode(auth.encode('ascii')).decode('ascii')
             headers = [('Authorization', 'Basic {0}'.format(auth))]
             response = self._request('POST', '/login', b'', headers)
@@ -536,6 +549,19 @@ class RavelloClient(object):
         """
         return self.request('PUT', '/applications/{0}'.format(app['id']), app)
 
+    def update_vm(self, app, vm):
+        """Update an existing vm.
+
+        The *app* parameter is the app containing the vm to update.
+
+        The *vm* parameter must be the updated vm. The way to update
+        a vm (or any other resource) is to first retrieve it, make
+        the updates client-side, and then use this method to make the update.
+
+        The updated vm is returned.
+        """
+        return self.request('PUT', '/applications/{0}/vms/{1}'.format(app['id'], vm['id']), entity=vm)
+
     def delete_application(self, app):
         """Delete an application with ID *app*."""
         if isinstance(app, dict): app = app['id']
@@ -681,7 +707,9 @@ class RavelloClient(object):
         headers = [('Accept', 'text/plain')]
         url = self.request('GET', '/applications/{0}/vms/{1}/vncUrl'.format(app, vm),
                            headers=headers)
-        return url.decode('iso-8859-1')
+        if hasattr(url, "decode"):
+            return url.decode('iso-8859-1')
+        return url
 
     def get_detailed_charges_for_application(self, app, mode = 'deployment', deployment_options = {}):
         """Get the detailed hourly charges for an application.
@@ -776,6 +804,18 @@ class RavelloClient(object):
         """Delete the blueprint with ID *bp*."""
         if isinstance(bp, dict): bp = bp['id']
         self.request('DELETE', '/blueprints/{0}'.format(bp))
+
+    def get_detailed_charges_for_blueprint(self, bp, deployment_options = {}):
+        """Estimate the detailed charges for an application deployed from this blueprint.
+        *bp* is the blueprint to get the charges for
+        *deployment_options* required parameter, is a dict 
+        with the deployment optimizationLevel when querying for a design pricing.
+        See the REST API docs for details on possible values.
+        """
+        if isinstance(bp, dict): bp = bp['id']
+        if 'optimizationLevel' not in deployment_options:
+            raise RavelloError("Cannot query for detailed blueprint charges with no optimizationLevel specified in deployment_options")
+        return self.request('POST', '/blueprints/{0}/calcPrice'.format(bp), deployment_options)
 
     def get_image(self, img):
         """Return the image with ID *img*, or None if it does not exist."""
@@ -914,15 +954,14 @@ class RavelloClient(object):
             users = _match_filter(users, filter)
         return users
 
-    def create_user(self, user):
-        """Invite a new user to organization.
+    def invite_user(self, user):
+        """Invite a new user.
 
         The *user* parameter must be a dict describing the user to invite.
 
         The new user is returned.
         """
-        org = self.get_organization()['id']
-        return self.request('POST', '/organizations/{0}/users'.format(org), user)
+        return self.request('POST', '/users/invite', user)
 
     def update_user(self, user, userId):
         """Update an existing user.
@@ -1214,3 +1253,150 @@ class RavelloClient(object):
         """Retrieves all communities."""
         return self.request('GET', '/communities')
 
+    def get_cost_buckets(self, permissions="execute,update", skip_deleted=False):
+        """Retrieves all cost buckets
+        *permissions* - Possible values: execute, create, read, update, delete, share or ephemeral_access, or any combination of the above, comma separated. The returned list will be only buckets with user's authentication plus defined permissions.
+        *skip_deleted* - If False, list contains also deleted cost buckets.
+        """
+        skip_deleted_str=str(skip_deleted).lower()
+        return self.request('GET', '/costBuckets?permissions={0}&skipDeleted={1}'.format(permissions,skip_deleted_str))
+
+    def get_cost_bucket(self, cost_bucket):
+        """Retrieves an existing cost bucket.
+        The *cost_bucket* parameter is the ID of the cost bucket to retrieve
+        """
+        if isinstance(cost_bucket, dict): cost_bucket = cost_bucket['id']
+        return self.request('GET', '/costBuckets/{0}'.format(cost_bucket))
+
+    def create_cost_bucket(self, cost_bucket_details):
+        """Creates a new cost bucket.
+        The *cost_bucket_details* parameter is a dict describing the cost bucket to create.
+        This parameter has a mandatory field named *name*, as well as optional fields:
+        - description - The description of the cost bucket
+        - parentId - The ID of the cost bucket parent, which is also a cost bucket. If this parameter is missing, the default parentId, "Organization", is set.
+        """
+        return self.request('POST', '/costBuckets', cost_bucket_details)
+
+    def update_cost_bucket(self, cost_bucket, cost_bucket_details):
+        """Updates an existing cost bucket.
+        The *cost_bucket* parameter is the ID of the cost bucket to update
+        The *cost_bucket_details* parameter is a dict describing the cost bucket details
+        """
+        if isinstance(cost_bucket, dict): cost_bucket = cost_bucket['id']
+        return self.request('PUT', '/costBuckets/{0}'.format(cost_bucket), cost_bucket_details)
+
+    def associate_resource_to_cost_bucket(self, cost_bucket, resource_details):
+        """Associate Billed Resource to a Different Cost Bucket
+        The *cost_bucket* parameter is the ID of the cost bucket the resource will be associated to
+        The *resource_details* parameter is a dict describing the resource to associate details
+        """
+        if isinstance(cost_bucket, dict): cost_bucket = cost_bucket['id']
+        return self.request('PUT', '/costBuckets/{0}/associateResource'.format(cost_bucket), resource_details)
+
+    def describe_cost_bucket(self):
+        """Describe Cost Bucket
+        """
+        return self.request('GET', '/costBuckets/describe')
+
+    def get_cost_alert_definition(self, cost_alert_definition):
+        """Returns a single cost alert definition according to its ID.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to retrieve
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        return self.request('GET', '/costAlertDefinitions/{0}'.format(cost_alert_definition))
+
+    def get_cost_alert_definitions(self, cost_bucket):
+        """Retrieves all the cost alert definitions for an existing cost bucket.
+        The *cost_bucket* parameter is the ID of the cost bucket to retrieve
+        """
+        if isinstance(cost_bucket, dict): cost_bucket = cost_bucket['id']
+        return self.request('GET', '/costBuckets/{0}/costAlertDefinitions'.format(cost_bucket))
+
+    def create_cost_alert_definition(self, cost_alert_definition_details):
+        """Creates a new cost alert definition. In addition to permission to create cost alert definitions,
+         the user must also have READ permission on the aggregation parent, and READ permission on Billing Info.
+        The *cost_alert_definition_details* parameter is a dict describing the cost alert definition to create.
+        This parameter has several mandatory fields: 
+        - aggregationTimeUnit - The duration of the aggregation. Possible values: daily, weekly, monthly, yearly, all_times.
+        - costLimit - The limit in dollars.
+        - aggregationParent - Possible values: "cost_bucket" or "application". If "cost_bucket" is sent, an alert is sent when the quota for this bucket is exceeded. If "application" is sent, an alert is sent when the quota is exceeded for this application.
+        - parentId - The ID of the cost_bucket / application in which the alert is defined.
+        This parameter has several optional fields:
+        - description - The description of the cost bucket
+        - warningThreshold - The threshold for warning, as a percentage.
+        - userIds - List of IDs of the users that will receive the messages when the configured quota is exceeded.
+        """
+        return self.request('POST', '/costAlertDefinitions', cost_alert_definition_details)
+
+    def update_cost_alert_definition(self, cost_alert_definition, cost_alert_definition_details):
+        """Updates a specific cost alert definition. The user should have the following permissions in order to complete this operation: UPDATE permission on cost alert definitions, READ permission on the aggregation parent (the cost bucket or application's on which the alert is set) and READ permission on Billing Info.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to update
+        The *cost_alert_definition_details* parameter is a dict describing the cost alert definition to update.
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        return self.request('PUT', '/costAlertDefinitions/{0}'.format(cost_alert_definition), cost_alert_definition_details)
+
+    def delete_cost_alert_definition(self, cost_alert_definition):
+        """Deletes a cost alert definition. The user should have the following permissions in order to complete this operation: DELETE permission on cost alert definitions, READ permission on the aggregation parent (the cost bucket or application's on which the alert is set) and READ permission on Billing Info.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to delete
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        return self.request('DELETE', '/costAlertDefinitions/{0}'.format(cost_alert_definition))
+
+    def get_users_of_cost_alert_definition(self, cost_alert_definition):
+        """Returns list of all the recipients of a specific cost alert definition.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to retrieve
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        return self.request('GET', '/costAlertDefinitions/{0}/users'.format(cost_alert_definition))
+
+    def add_user_to_cost_alert_definition(self, cost_alert_definition, user):
+        """Adds a recipient to the cost alert definition. Required permissions: READ permission on the user, and UPDATE permission on the Cost Alert Definition.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to add the user to
+        The *user* parameter is the ID of the user to add to the cost alert definition
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        if isinstance(user, dict): user = user['id']
+        return self.request('POST', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition, user))
+
+    def remove_user_from_cost_alert_definition(self, cost_alert_definition, user):
+        """Deletes related user from cost alert definition. Required permissions: READ permission on the user, and UPDATE permission on the Cost Alert Definition.
+        The *cost_alert_definition* parameter is the ID of the cost alert definition to remove the user from
+        The *user* parameter is the ID of the user to remove from the cost alert definition
+        """
+        if isinstance(cost_alert_definition, dict): cost_alert_definition = cost_alert_definition['id']
+        if isinstance(user, dict): user = user['id']
+        return self.request('DELETE', '/costAlertDefinitions/{0}/users/{1}'.format(cost_alert_definition, user))
+
+    def get_shares(self, request=None):
+        """Get List of Shares.
+        Returns a list of share records, optional filters could be used.
+        - sharingUserId	- The ID of the sharing user.
+        - targetEmail - The email of the user whom we share the resource with.
+        - sharedResourceType - Could be one of the following: BLUEPRINT, LIBRARY_VM, DISK_IMAGE.
+        - sharedResourceId - The resource ID.
+        """
+
+        if isinstance(request, dict):
+            query = urllib.urlencode(request)
+            path = '/shares?{0}'.format(query)
+        else:
+            path = '/shares'
+        return self.request('GET', path)
+
+    def share_resource(self, share_details):
+        """Share Specific Resource.
+        The *share_details* parameter is a dict, describing the share to create.
+        All fields are mandatory:
+        - targetEmail - The email address of the user the share the resource with.
+        - sharedResourceType - Should be one of the following: BLUEPRINT, LIBRARY_VM, DISK_IMAGE
+        - sharedResourceId - The resource ID
+        """
+        return self.request('POST', '/shares', share_details)
+
+    def delete_share(self, share):
+        """Delete Share Data by ID.
+        Unshare specific resource.
+        """
+        if isinstance(share, dict): share = share['id']
+        return self.request('DELETE', '/shares/{0}'.format(share))

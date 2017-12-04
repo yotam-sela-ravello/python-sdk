@@ -19,6 +19,7 @@ from __future__ import absolute_import, print_function
 import os
 from setuptools import setup
 
+
 version_info = {
     'name': 'ravello-sdk',
     'version': '2.9',
@@ -36,17 +37,24 @@ version_info = {
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
         'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 2.8.dev',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4'
     ]
 }
-
 
 if __name__ == '__main__':
     setup(
         package_dir={'': 'lib'},
         py_modules=['ravello_sdk', 'ravello_cli'],
         install_requires=['six', 'docopt', 'requests>=2.6.0'],
-        **version_info
+        name= version_info['name'],
+        version= version_info['version'],
+        description= version_info['description'],
+        author= version_info['author'],
+        maintainer= version_info['maintainer'],
+        maintainer_email= version_info['maintainer_email'],
+        url= version_info['url'],
+        license= version_info['license'],
+        classifiers= version_info['classifiers']
     )
