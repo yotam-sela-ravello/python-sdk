@@ -353,7 +353,7 @@ class RavelloClient(object):
         if self._eph_token is not None:
             hdict['X-Ephemeral-Token-Authorization'] = self._eph_token
         if body:
-            hdict['Content-Type'] = 'application/json'
+            hdict['Content-Type'] = 'application/json;charset=utf-8'
         if isinstance(headers, dict):
             hdict.update(headers)
         elif isinstance(headers, list):
