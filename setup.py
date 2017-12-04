@@ -22,9 +22,10 @@ from setuptools import setup
 
 version_info = {
     'name': 'ravello-sdk',
-    'version': '2.8.dev',
+    'version': '2.9',
     'description': 'Python SDK for the Ravello API',
     'author': 'Geert Jansen',
+    'author_email': 'geert.jansen@ravellosystems.com',
     'maintainer': 'Hadar Davidovich',
     'maintainer_email': 'hadar.davidovich@oracle.com',
     'url': 'https://github.com/ravello/python-sdk',
