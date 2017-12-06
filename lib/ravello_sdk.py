@@ -354,7 +354,7 @@ class RavelloClient(object):
         This method can be used in case a certain API call has not yet been
         added as a method.
         """
-        body = json.dumps(entity).encode('utf8') if entity is not None else b''
+        body = json.dumps(entity).encode('utf-8') if entity is not None else b''
         headers = headers if headers is not None else []
         response = self._request(method, path, body, headers)
         return response.entity
