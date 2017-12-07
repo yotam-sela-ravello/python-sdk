@@ -106,7 +106,8 @@ def make_release(relver, nextver):
         sh('git add setup.py')
         sh('git commit -m "version {0}"', relver)
     sh('git tag -a -m "version {0}" {1}-{0}', relver, vinfo['name'])
-    sh('python setup.py sdist upload >/dev/null')
+    sh('python setup.py sdist')
+    sh('twine upload dist/*')
     if nextver:
         sh('sed -i -e \'s/{0}/{1}.dev/\' setup.py', relver, nextver)
         sh('git add setup.py')
