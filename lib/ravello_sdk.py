@@ -58,17 +58,29 @@ def update_luids(obj):
     multiple VMs based on the same image, the IDs are copied and you need to
     use this function to ensure the VMs have unique local IDs again.
     """
+    old_luid_to_new_luid_dict = dict()
+    return inner_update_luids(obj, old_luid_to_new_luid_dict)
+
+def inner_update_luids(obj, old_luid_to_new_luid_dict):
     if isinstance(obj, list):
-        return [update_luids(elem) for elem in obj]
+        return [inner_update_luids(elem, old_luid_to_new_luid_dict) for elem in obj]
     elif isinstance(obj, dict):
         for key, value in obj.items():
-            if key == 'id':
-                obj['id'] = random_luid()
+            if key in ('id','controllerId','componentId','ipConfigLuid'):
+                new_id = get_luid(value, old_luid_to_new_luid_dict)
+                obj[key] = new_id
+            if key == 'busId' and value != '0':
+                new_id = get_luid(long(value), old_luid_to_new_luid_dict)
+                obj['busId'] = str(new_id)
             elif isinstance(value, (dict, list)):
-                update_luids(value)
+                inner_update_luids(value, old_luid_to_new_luid_dict)
     else:
         return obj
 
+def get_luid(luid, old_luid_to_new_luid_dict):
+    if luid not in old_luid_to_new_luid_dict.keys():
+        old_luid_to_new_luid_dict[luid] = random_luid()
+    return old_luid_to_new_luid_dict[luid]
 
 def application_state(app):
     """Return the consolidated state for application *app*.
