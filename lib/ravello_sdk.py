@@ -385,7 +385,7 @@ class RavelloClient(object):
             for key, value in headers:
                 hdict[key] = value
         retries = 0
-        while retries < self.retries:
+        while retries <= self.retries:
             if not self.logged_in and (self.have_credentials or self.have_eph_access_token) and self._autologin:
                 self._login()
             try:
@@ -433,6 +433,8 @@ class RavelloClient(object):
                         self.close()
                         response.raise_for_status()
                     elif self._autologin:
+                        if not self.retries:
+                            response.raise_for_status()
                         self._login()
                         retries += 1
                         continue
@@ -444,13 +446,13 @@ class RavelloClient(object):
             except (requests.exceptions.Timeout, ValueError) as e:
                 self._logger.debug('error: {0!s}'.format(e))
                 self.close()
-                if not _idempotent(method):
+                if not _idempotent(method) or not self.retries:
                     self._logger.debug('not retrying {0} request'.format(method))
                     raise e
                 retries += 1
                 continue
             break
-        if retries == self.retries:
+        if retries > self.retries:
             raise RavelloError('maximum number of retries reached')
         return response
 
