@@ -237,7 +237,8 @@ class RavelloClient(object):
         self._connection = None
         self._user_info = None
         self._set_url(url or self.default_url)
-        self._proxies = {}
+        # Get proxy setting from environment variables
+        self._proxies = urllib.getproxies()
         if proxy_url is not None:
             self._proxies = {"http": proxy_url, "https": proxy_url}
         self._eph_token = eph_token
